@@ -55,7 +55,13 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation("androidx.navigation:navigation-compose:2.8.5")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.google.code.gson:gson:2.11.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.5")
+
+    implementation("androidx.navigation:navigation-compose:2.9.6")
+
 
 
     implementation(libs.androidx.room.runtime)

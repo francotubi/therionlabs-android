@@ -12,6 +12,8 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import cl.duoc.therionlabs.network.ParticipacionEventoClient
+import cl.duoc.therionlabs.data.local.EventoEntity
 
 class OperacionViewModel(aplicacion: Application, private val guardado: SavedStateHandle) :
     AndroidViewModel(aplicacion) {
@@ -53,14 +55,61 @@ class OperacionViewModel(aplicacion: Application, private val guardado: SavedSta
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+
     fun establecerUsuario(actual: SesionUsuario?) {
         if (usuario.value?.id != actual?.id) {
-            if (guardado.get<String>("responsable") != actual?.id) limpiarEvento()
+            if (guardado.get<String>("responsable") != actual?.id) {
+                limpiarEvento()
+            }
+
             usuario.value = actual
             guardado["responsable"] = actual?.id
             _mensaje.value = null
+
+            // Descargar eventos cuando se inicia sesión
+            if (actual != null) {
+                viewModelScope.launch {
+                    try {
+                        repositorio.descargarEventos()
+                    } catch (cancelacion: CancellationException) {
+                        throw cancelacion
+                    } catch (_: Exception) {
+                        // Sin internet, conservar los eventos de Room.
+                        // No interrumpir el inicio de sesión.
+                    }
+                }
+            }
         }
     }
+
+
+    fun registrarParticipacion(evento: EventoEntity) {
+        val actual = usuario.value ?: return
+
+        if (!PermisosPerfil.puedeCapturar(actual)) return
+
+        viewModelScope.launch {
+            try {
+                val cliente = ParticipacionEventoClient(
+                    getApplication()
+                )
+
+                cliente.unirseEvento(
+                    usuarioId = actual.id,
+                    eventoId = evento.id
+                )
+
+            } catch (cancelacion: CancellationException) {
+                throw cancelacion
+
+            } catch (_: Exception) {
+                // La participación no pudo confirmarse.
+                // El formulario offline permanece disponible.
+                // WorkManager deberá reintentar la unión.
+            }
+        }
+    }
+
 
     fun actualizarEvento(cambio: (BorradorEvento) -> BorradorEvento) {
         if (_ocupado.value || !PermisosPerfil.puedeAdministrar(usuario.value)) return

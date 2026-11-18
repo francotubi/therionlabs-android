@@ -7,6 +7,11 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import cl.duoc.therionlabs.network.CrearEventoRequest
+import cl.duoc.therionlabs.network.RetrofitClient
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
 
 class OperacionRepository(private val db: AppDatabase) {
     private val dao = db.operacionDao()
@@ -68,39 +73,121 @@ class OperacionRepository(private val db: AppDatabase) {
         }
     }
 
-    suspend fun crearEvento(usuario: SesionUsuario, borrador: BorradorEvento): String =
+
+    suspend fun crearEvento(
+        usuario: SesionUsuario,
+        borrador: BorradorEvento
+    ): String {
+        require(dao.usuarioPorId(usuario.id)?.rol == Roles.ADMINISTRATIVO) {
+            "Solo administración puede crear eventos."
+        }
+
+        require(ReglasEvento.validar(borrador).isEmpty()) {
+            "Revisa los campos del evento."
+        }
+
+        val eventosExistentes = dao.listaEventos()
+            .filterNot { ReglasEvento.esDemostracion(it.id) }
+
+        require(eventosExistentes.none {
+            CatalogoRegional.normalizar(it.nombre) ==
+                    CatalogoRegional.normalizar(borrador.nombre) &&
+                    CatalogoRegional.normalizar(it.colegio) ==
+                    CatalogoRegional.normalizar(borrador.colegio) &&
+                    it.fecha == borrador.fecha
+        }) {
+            "Ya existe ese evento para la misma institución y fecha."
+        }
+
+        // Convertir dd/MM/yyyy a yyyy-MM-dd
+        val fechaServidor = LocalDate.parse(
+            borrador.fecha,
+            DateTimeFormatter.ofPattern("dd/MM/uuuu")
+        ).toString()
+
+        val solicitud = CrearEventoRequest(
+            nombre = borrador.nombre.trim(),
+            colegio = borrador.colegio.trim(),
+            fecha = fechaServidor,
+            actividad = borrador.actividad.trim(),
+            comuna = borrador.comuna.trim()
+        )
+
+        // Primero publicar el evento en Spring Boot
+        val respuesta = RetrofitClient.eventoApi.crearEvento(solicitud)
+
+        if (!respuesta.isSuccessful) {
+            throw IllegalArgumentException(
+                "No se pudo publicar el evento. Código HTTP: ${respuesta.code()}"
+            )
+        }
+
+        val eventoServidor = requireNotNull(respuesta.body()) {
+            "El servidor no devolvió los datos del evento."
+        }
+
+        // Comprobar que el backend devolvió un UUID válido
+        java.util.UUID.fromString(eventoServidor.id)
+
+        // Guardar en Room con el mismo UUID de MySQL
         db.withTransaction {
-            require(dao.usuarioPorId(usuario.id)?.rol == Roles.ADMINISTRATIVO) {
-                "Solo administración puede crear eventos."
-            }
-            require(ReglasEvento.validar(borrador).isEmpty()) { "Revisa los campos del evento." }
-            val eventos = dao.listaEventos().filterNot { ReglasEvento.esDemostracion(it.id) }
-            require(
-                eventos.none {
-                    CatalogoRegional.normalizar(it.nombre) ==
-                        CatalogoRegional.normalizar(borrador.nombre) &&
-                        CatalogoRegional.normalizar(it.colegio) ==
-                            CatalogoRegional.normalizar(borrador.colegio) &&
-                        it.fecha == borrador.fecha
-                }
-            ) {
-                "Ya existe ese evento para la misma institución y fecha."
-            }
-            val id = java.util.UUID.randomUUID().toString()
             dao.insertarEventos(
                 listOf(
                     EventoEntity(
-                        id,
-                        borrador.nombre.trim(),
-                        borrador.colegio.trim(),
-                        borrador.fecha,
-                        borrador.actividad.trim(),
-                        comuna = borrador.comuna.trim(),
+                        id = eventoServidor.id,
+                        nombre = eventoServidor.nombre,
+                        colegio = eventoServidor.colegio,
+                        fecha = borrador.fecha,
+                        actividad = eventoServidor.actividad,
+                        activo = eventoServidor.activo,
+                        comuna = eventoServidor.comuna.orEmpty()
                     )
                 )
             )
-            id
         }
+
+        return eventoServidor.id
+    }
+
+    suspend fun descargarEventos(): Int {
+        // Consultar eventos publicados en Spring Boot
+        val respuesta = RetrofitClient.eventoApi.obtenerEventos()
+
+        if (!respuesta.isSuccessful) {
+            throw IllegalArgumentException(
+                "No se pudieron descargar los eventos. HTTP ${respuesta.code()}"
+            )
+        }
+
+        val eventosServidor = requireNotNull(respuesta.body()) {
+            "El servidor no devolvió la lista de eventos."
+        }
+
+        // Convertir eventos del backend a entidades Room
+        val eventosLocales = eventosServidor.map { evento ->
+            EventoEntity(
+                id = java.util.UUID.fromString(evento.id).toString(),
+                nombre = evento.nombre,
+                colegio = evento.colegio,
+                fecha = java.time.LocalDate.parse(evento.fecha)
+                    .format(
+                        java.time.format.DateTimeFormatter
+                            .ofPattern("dd/MM/uuuu")
+                    ),
+                actividad = evento.actividad,
+                activo = evento.activo,
+                comuna = evento.comuna.orEmpty()
+            )
+        }
+
+        // Guardar los eventos sin duplicar UUID existentes
+        db.withTransaction {
+            dao.insertarEventos(eventosLocales)
+        }
+
+        return eventosLocales.size
+    }
+
 
     suspend fun ingresar(nombre: String, clave: String): SesionUsuario? =
         withContext(Dispatchers.IO) {

@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import android.app.Application
+import cl.duoc.therionlabs.worker.SyncScheduler
 
 data class EstadoHistorial(
     val registros: List<ProspectoEntity> = emptyList(),
@@ -37,10 +39,12 @@ data class EstadoHistorial(
 class ProspectoViewModel(
     private val repositorio: ProspectoRepository,
     private val guardado: SavedStateHandle,
+    private val aplicacion: Application,
 ) : ViewModel() {
 
+
     var formulario by
-        mutableStateOf(guardado.get<FormularioProspectos>("formulario") ?: FormularioProspectos())
+    mutableStateOf(guardado.get<FormularioProspectos>("formulario") ?: FormularioProspectos())
         private set
 
     var erroresFormulario by mutableStateOf(ErroresFormularioProspectos())
@@ -69,12 +73,12 @@ class ProspectoViewModel(
     private val usuarioActivo = MutableStateFlow<SesionUsuario?>(null)
     val estadoHistorial: Flow<EstadoHistorial> =
         combine(repositorio.registros(), usuarioActivo) { registros, usuario ->
-                EstadoHistorial(
-                    registros =
-                        registros.filter { PermisosPerfil.puedeConsultar(usuario, it.captadorId) },
-                    cargando = false,
-                )
-            }
+            EstadoHistorial(
+                registros =
+                    registros.filter { PermisosPerfil.puedeConsultar(usuario, it.captadorId) },
+                cargando = false,
+            )
+        }
             .catch { error ->
                 if (error is CancellationException) throw error
                 Log.e(TAG, "Error al consultar Room", error)
@@ -115,7 +119,7 @@ class ProspectoViewModel(
 
     fun tieneBorrador(): Boolean =
         formulario !=
-            (guardado.get<FormularioProspectos>("formularioInicial") ?: FormularioProspectos())
+                (guardado.get<FormularioProspectos>("formularioInicial") ?: FormularioProspectos())
 
     fun descartarFormulario() {
         formulario = FormularioProspectos()
@@ -130,8 +134,8 @@ class ProspectoViewModel(
     fun actualizarFormulario(nuevoFormulario: FormularioProspectos) {
         if (
             guardando ||
-                registroGuardadoId != null ||
-                !PermisosPerfil.puedeCapturar(usuarioActivo.value)
+            registroGuardadoId != null ||
+            !PermisosPerfil.puedeCapturar(usuarioActivo.value)
         )
             return
         // Las preferencias deben corresponder a la sede seleccionada.
@@ -296,8 +300,23 @@ class ProspectoViewModel(
         guardando = true
         viewModelScope.launch {
             try {
+
                 val id = repositorio.guardarProspecto(usuario, prospecto)
-                check(id > 0L) { "Room no devolvió un identificador de fila válido" }
+                check(id > 0L) {
+                    "Room no devolvió un identificador de fila válido"
+                }
+
+                try {
+                    SyncScheduler.solicitarSincronizacion(aplicacion)
+                } catch (error: Exception) {
+                    Log.e(
+                        TAG,
+                        "Prospecto guardado, pero no se pudo programar la sincronización",
+                        error
+                    )
+                }
+
+                // Limpiar el formulario después de guardar
                 descartarFormulario()
                 erroresFormulario = ErroresFormularioProspectos()
                 mostrarErroresDatosPersonales = false
@@ -332,7 +351,12 @@ class ProspectoViewModel(
                 val aplicacion = checkNotNull(this[APPLICATION_KEY])
                 val baseDeDatos = AppDatabase.getDatabase(aplicacion)
                 val repositorio = ProspectoRepository(baseDeDatos)
-                ProspectoViewModel(repositorio, createSavedStateHandle())
+                ProspectoViewModel(
+                    repositorio,
+                    createSavedStateHandle(),
+                    aplicacion
+                )
+
             }
         }
     }

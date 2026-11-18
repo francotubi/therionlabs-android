@@ -1,0 +1,39 @@
+package cl.duoc.therionlabs.network
+
+data class ProspectoSyncRequest(
+    val id: String,
+    val eventoId: String,
+
+    val rut: String?,
+    val nombre: String?,
+    val apellidos: String?,
+    val fechaNacimiento: String?,
+    val celular: String?,
+    val email: String?,
+
+    val establecimiento: String?,
+    val comunaResidencia: String?,
+    val comunaEstablecimiento: String?,
+    val actividadActual: String?,
+    val jornada: String?,
+
+    val region: String?,
+    val sede: String?,
+    val nivelInteres: String?,
+    val carrera1: String?,
+    val carrera2: String?,
+    val carrera3: String?,
+    val modalidad: String?,
+    val canalContacto: String?,
+
+    val observaciones: String?,
+    val autorizaContacto: Boolean,
+    val fechaCaptura: Long?,
+
+    val fotoRuta: String?,
+    val latitud: Double?,
+    val longitud: Double?,
+    val precisionMetros: Float?,
+    val fechaUbicacion: Long?,
+    val direccion: String?
+)

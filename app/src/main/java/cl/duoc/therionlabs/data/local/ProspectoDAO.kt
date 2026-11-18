@@ -32,4 +32,46 @@ interface ProspectoDAO {
 
     @Query("SELECT * FROM prospectos ORDER BY id DESC")
     suspend fun obtenerParaExportacion(): List<ProspectoEntity>
+
+
+    // Obtener prospectos pendientes de sincronización
+    @Query("""
+        SELECT * FROM prospectos
+        WHERE sincronizado = 0
+        AND eventoId != ''
+        ORDER BY id ASC
+    """)
+    suspend fun obtenerPendientesSincronizacion(): List<ProspectoEntity>
+
+    // Marcar como sincronizado después de recibir confirmación
+    @Query("""
+        UPDATE prospectos
+        SET sincronizado = 1
+        WHERE id = :id
+        AND identificador = :identificador
+    """)
+
+    suspend fun marcarComoSincronizado(
+        id: Int,
+        identificador: String
+    ): Int
+
+
+    @Query("""
+    SELECT COUNT(*)
+    FROM prospectos
+    WHERE sincronizado = 0
+    AND captadorId = :usuarioId
+""")
+    suspend fun contarPendientes(usuarioId: String): Int
+
+    @Query("""
+    SELECT COUNT(*)
+    FROM prospectos
+    WHERE sincronizado = 1
+    AND captadorId = :usuarioId
+""")
+    suspend fun contarSincronizados(usuarioId: String): Int
+
+
 }

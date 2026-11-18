@@ -18,14 +18,35 @@ import cl.duoc.therionlabs.domain.*
 import cl.duoc.therionlabs.ui.components.IconosFormulario
 import cl.duoc.therionlabs.ui.screens.*
 import cl.duoc.therionlabs.ui.theme.TherionLabsAppTheme
+import cl.duoc.therionlabs.network.DispositivoTokenStore
+import cl.duoc.therionlabs.ui.components.VincularDispositivoSection
+import cl.duoc.therionlabs.ui.components.EstadoSincronizacionSection
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 
 class MainActivity : ComponentActivity() {
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // SOLO PARA PRUEBAS LOCALES
+        // No escribir el token directamente en el código.
+        val tokenStore = DispositivoTokenStore(this)
+
+        // Aquí todavía no registramos el token.
+        // Lo haremos con un mecanismo de configuración
+        // para evitar incluir credenciales en el APK.
+
         enableEdgeToEdge()
-        setContent { TherionLabsAppTheme { Aplicacion() } }
+        setContent {
+            TherionLabsAppTheme {
+                Aplicacion()
+            }
+        }
     }
 }
+
 
 @Composable
 fun Aplicacion(
@@ -281,8 +302,12 @@ private fun NavegacionSesion(
             }
             composable("cuenta") {
                 Column(
-                    Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .safeDrawingPadding()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text("Mi cuenta", style = MaterialTheme.typography.headlineMedium)
                     Text(usuario.nombre, style = MaterialTheme.typography.titleLarge)
@@ -294,8 +319,23 @@ private fun NavegacionSesion(
                             "Puedes registrar prospectos en eventos disponibles y consultar tus capturas."
                     )
                     Text(CatalogoRegional.region, style = MaterialTheme.typography.labelLarge)
+                    if (PermisosPerfil.puedeCapturar(usuario)) {
+                        HorizontalDivider()
+
+                        VincularDispositivoSection(
+                            usuarioId = usuario.id
+                        )
+
+                        HorizontalDivider()
+
+                        EstadoSincronizacionSection(
+                            usuarioId = usuario.id
+                        )
+
+                    }
+
                     Text(
-                        "Los datos se conservan en este dispositivo. La sesión termina al cerrar el proceso.",
+                        "Los datos se conservan en este dispositivo. \nLa sesión termina al cerrar el proceso.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Button(onClick = { cerrarSesion = true }, enabled = !ocupado) {
