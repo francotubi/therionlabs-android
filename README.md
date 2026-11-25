@@ -14,7 +14,7 @@ Diego Barra, Franco Tubi, Maicol García y Benjamín Osorio.
 - Los captadores descargan eventos abiertos y guardan fichas en Room sin conexión. Las capturas previas al cierre de un evento pueden enviarse después; el servidor rechaza capturas nuevas posteriores al cierre.
 - WorkManager envía las capturas pendientes al recuperar conexión. Los reintentos mantienen el UUID original para evitar duplicados. Los rechazos conservan el motivo y permiten corregir los datos.
 - Administración consulta los prospectos por evento, edita fichas, registra seguimientos, consulta estadísticas y exporta reportes Excel. No se borran fichas con gestiones registradas.
-- Los registros de eventos cerrados siguen disponibles desde Registros. La lista se actualiza mediante las opciones de actualización; no se utilizan notificaciones en tiempo real.
+- Eventos muestra los abiertos por defecto y permite filtrar Abiertos, Cerrados o Todos. Registros conserva el historial completo, incluidos los eventos cerrados. La lista se actualiza mediante las opciones de actualización; no se utilizan notificaciones en tiempo real.
 - La oferta académica está limitada a Valparaíso y Viña del Mar, con carreras según la sede.
 - Cámara y ubicación son opcionales. Las fotos permanecen en el teléfono: enviar su ruta no transfiere el archivo a otros dispositivos.
 - El clima se consulta mediante Retrofit a Open-Meteo; un fallo del proveedor no impide capturar ni sincronizar.

@@ -86,9 +86,15 @@ fun EventosScreen(
         )
     }
     var busqueda by rememberSaveable { mutableStateOf("") }
+    var estadoEvento by rememberSaveable(verRegistros) { mutableStateOf("Abiertos") }
     var eliminarEvento by remember { mutableStateOf<EventoEntity?>(null) }
     val visibles = eventos.filter {
-        (administrativo || it.activo || verRegistros) &&
+        (verRegistros ||
+            when (estadoEvento) {
+                "Abiertos" -> it.activo
+                "Cerrados" -> !it.activo
+                else -> true
+            }) &&
             CatalogoRegional.normalizar("${it.nombre} ${it.colegio} ${it.comuna} ${it.fecha}")
                 .contains(CatalogoRegional.normalizar(busqueda))
     }
@@ -191,6 +197,24 @@ fun EventosScreen(
                     Text("Crear evento")
                 }
             }
+        if (!verRegistros)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Abiertos", "Cerrados", "Todos").forEach { estado ->
+                            FilterChip(
+                                selected = estadoEvento == estado,
+                                onClick = { estadoEvento = estado },
+                                label = { Text(estado) },
+                            )
+                        }
+                    }
+                    Text(
+                        "${visibles.size} de ${eventos.size} eventos",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
         item {
             CampoEntrada("Buscar evento, institución, comuna o fecha", busqueda, { busqueda = it })
         }
@@ -206,7 +230,13 @@ fun EventosScreen(
                             "Crea el primer evento para habilitar el registro de prospectos."
                         else
                             "Todavía no hay eventos abiertos. Actualiza la lista cuando administración publique uno."
-                    } else "No se encontraron eventos para esta búsqueda."
+                    } else if (busqueda.isNotBlank())
+                        "No se encontraron eventos para esta búsqueda."
+                    else if (!verRegistros && estadoEvento == "Abiertos")
+                        "No hay eventos abiertos. Puedes consultar los anteriores en Cerrados."
+                    else if (!verRegistros && estadoEvento == "Cerrados")
+                        "Todavía no hay eventos cerrados."
+                    else "No hay eventos para mostrar."
                 )
             }
         item {
