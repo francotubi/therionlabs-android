@@ -1,0 +1,23 @@
+APK release 2.3
+Servidor: https://184.192.154.68/
+Alias: therionlabs
+Llave privada: firma/therionlabs-release.jks (fuera de Git)
+SHA-256 del APK: 7fb6fbf0ad7d9f92073361341240e1eb6c75c564bbbfb57fedec0d80ee358570
+
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=TherionLabs, OU=Desarrollo, O=TherionLabs, L=Valparaiso, ST=Valparaiso, C=CL
+Signer #1 certificate SHA-256 digest: a6094c889f0b1037a8340e73e1d93519505f3fdbd77db03474299943e515cd42
+Signer #1 certificate SHA-1 digest: af89ee06d6407b1308a98b24081a0079e84b5ab9
+Signer #1 certificate MD5 digest: b50e5a18a065ef2a8aa121e5ce4e65bd
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: 596de63a7bec3d35ac213bffa5e0accccbab858a8be9c198ec4b9bf167582d28
+Signer #1 public key SHA-1 digest: 58d0ed1d56ab4a81afdca0b65a085b5cbff598d9
+Signer #1 public key MD5 digest: 78e9b4271b0c0aa13605e7daa7238a3f

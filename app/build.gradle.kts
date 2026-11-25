@@ -1,7 +1,14 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+}
+
+val archivoFirma = rootProject.file("keystore.properties")
+val propiedadesFirma = Properties().apply {
+    if (archivoFirma.exists()) archivoFirma.inputStream().use { load(it) }
 }
 
 android {
@@ -17,14 +24,31 @@ android {
         applicationId = "cl.duoc.therionlabs"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "2.2"
+        versionCode = 6
+        versionName = "2.3"
+
+        manifestPlaceholders["traficoHttp"] = "false"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    if (archivoFirma.exists()) {
+        signingConfigs {
+            create("entrega") {
+                storeFile = rootProject.file(propiedadesFirma.getProperty("storeFile"))
+                storePassword = propiedadesFirma.getProperty("storePassword")
+                keyAlias = propiedadesFirma.getProperty("keyAlias")
+                keyPassword = propiedadesFirma.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            manifestPlaceholders["traficoHttp"] = "true"
+        }
         release {
+            if (archivoFirma.exists()) signingConfig = signingConfigs.getByName("entrega")
             optimization {
                 enable = false
             }

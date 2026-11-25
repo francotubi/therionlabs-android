@@ -7,7 +7,7 @@ import androidx.compose.runtime.setValue
 import java.net.URI
 
 object ConfiguracionConexion {
-    var direccion by mutableStateOf("http://10.0.2.2:8081/")
+    var direccion by mutableStateOf("https://184.192.154.68/")
         private set
 
     var credencialSesion by mutableStateOf("")
@@ -74,7 +74,7 @@ object ConfiguracionConexion {
                 uri.rawFragment == null &&
                 uri.path.orEmpty() in listOf("", "/")
         ) {
-            "Usa la dirección del servidor, por ejemplo http://10.0.2.2:8081/"
+            "Usa la dirección del servidor, por ejemplo https://184.192.154.68/"
         }
         return valor.trim().trimEnd('/') + "/"
     }

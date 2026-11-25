@@ -24,7 +24,7 @@ Diego Barra, Franco Tubi, Maicol García y Benjamín Osorio.
 1. Abrir este proyecto en Android Studio con JDK 21 y Android SDK 36, revisión menor 1.
 2. Ejecutar el backend de [therionlabs-backend](https://github.com/francotubi/therionlabs-backend) con MySQL. Configurar `THERIONLABS_DB_URL`, `THERIONLABS_DB_USER`, `THERIONLABS_DB_PASSWORD` y `PORT` (8081 por defecto).
 3. En la primera ejecución del backend, definir `THERIONLABS_ADMIN_USER` y `THERIONLABS_ADMIN_PASSWORD` para crear la cuenta administrativa inicial. No hay una contraseña de producción incluida en el código. Cambiar esas variables después no altera una cuenta ya creada.
-4. Ejecutar la aplicación. La dirección inicial del emulador es `http://10.0.2.2:8081/`. Desde el inicio de sesión, Configurar servidor permite guardar otra dirección antes de descargar eventos o capturar fichas. Para un teléfono físico se necesita una dirección accesible del backend. En el despliegue público debe utilizarse HTTPS.
+4. Ejecutar la aplicación. La dirección inicial es `https://184.192.154.68/`, correspondiente al backend desplegado en EC2 con una Elastic IP y certificado válido. Para pruebas locales se utiliza la compilación debug y se configura `http://10.0.2.2:8081/` antes de descargar datos. Desde el inicio de sesión, Configurar servidor permite guardar otra dirección antes de descargar eventos o capturar fichas. Para un teléfono físico se necesita una dirección accesible del backend. La compilación release solo admite conexiones HTTPS.
 5. Ingresar con la cuenta administrativa del servidor. En Cuentas, crear el usuario, contraseña inicial, nombre, perfil y código del captador. No se admiten códigos duplicados entre cuentas.
 6. El captador ingresa por primera vez con internet en su teléfono. El código y la credencial para sincronizar se guardan automáticamente. Descargar los eventos antes de trabajar sin conexión.
 
@@ -82,6 +82,16 @@ Se comprueban validaciones, permisos, contratos HTTP, migración de Room, conser
 
 ## APK firmado y evidencia de entrega
 
-El APK actual es de revisión y utiliza la firma de depuración. Para la entrega debe generarse una compilación release con una llave `.jks` propia desde Build > Generate Signed App Bundle or APK, completar su configuración y comprobar la instalación y la firma con `apksigner verify`.
+La versión 2.3 se genera como release y se firma con la llave privada `firma/therionlabs-release.jks`, alias `therionlabs`. La configuración de Gradle carga las credenciales desde `keystore.properties`; ambos archivos privados están excluidos de Git. `keystore.properties.example` muestra los campos necesarios para reproducir la firma con la llave conservada por el equipo.
 
-Antes de entregar falta incorporar aquí las capturas verificadas de la generación del APK firmado y de la llave exigidas por la pauta, la ubicación del APK final, la evidencia de planificación en Trello y el resultado de cobertura. No se incluyen contraseñas ni credenciales del servidor en el repositorio. El despliegue EC2 y la prueba con dos teléfonos físicos siguen pendientes.
+```powershell
+.\gradlew.bat assembleRelease
+```
+
+El APK firmado se entrega en `entrega/TherionLabs-2.3.apk`. El archivo `.jks` y sus credenciales deben conservarse y entregarse al docente por el canal privado correspondiente; no se publican en el repositorio. Todas las actualizaciones de esta versión deben utilizar la misma llave.
+
+La instalación debe realizarse en un teléfono sin otra compilación de TherionLabs firmada con una llave diferente. Los datos de prueba locales no se trasladan automáticamente a la base nueva de AWS. No se borran datos anteriores desde la aplicación.
+
+El backend se ejecuta como servicio en Ubuntu de EC2, con MySQL accesible dentro del servidor y Nginx en el puerto 443. El certificado de la IP tiene renovación automática configurada con Certbot. La instancia debe estar encendida y el laboratorio activo para que responda. La dirección permanece fija mientras se conserve la Elastic IP.
+
+Antes de cerrar la entrega falta completar las capturas verificadas de firma exigidas por la pauta, la evidencia de planificación en Trello, la medición de cobertura y las pruebas del flujo completo en dos teléfonos contra AWS. La respuesta HTTPS pública de `/api/eventos` fue comprobada; eso no sustituye las pruebas de acceso y captura desde los teléfonos.

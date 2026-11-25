@@ -2,7 +2,7 @@
 
 ## Comprobaciones realizadas
 
-- APK de revisión 2.2 generado e instalado en el emulador sin borrar los datos anteriores.
+- Versión 2.2 de revisión probada en el emulador sin borrar los datos anteriores. La versión 2.3 configura por defecto la dirección HTTPS de EC2 y la firma release.
 - 14 pruebas unitarias de Android sin fallos: validaciones, roles y contratos HTTP.
 - 6 pruebas instrumentadas ejecutadas en el emulador sin fallos: migración de Room, persistencia, cifrado, asignación automática de captador, acceso sin red y conservación de la identidad de usuarios anteriores.
 - El acceso sin conexión requiere una cuenta previamente validada y se limita a siete días. Un rechazo HTTP del servidor no utiliza la caché como alternativa.
@@ -14,9 +14,9 @@
 
 ## Pruebas pendientes de entrega
 
-1. Desplegar en EC2 con HTTPS y configuración privada de credenciales.
+1. Despliegue en EC2 realizado con Ubuntu, MySQL, servicio systemd y Nginx. HTTPS público verificado con respuesta 200 de /api/eventos y certificado válido para la Elastic IP 184.192.154.68. Falta ejecutar la prueba de renovación automática.
 2. Probar la versión nueva en dos teléfonos físicos contra el mismo servidor.
 3. Medir y completar la cobertura del 80 % de lógica exigida por la pauta. El número de pruebas no acredita esa cobertura.
-4. Generar el APK release con su llave de entrega y agregar las capturas verificadas de firma y evidencia de Trello al README.
+4. Agregar las capturas verificadas de firma y evidencia de Trello al README.
 
-Esta compilación conserva la firma de depuración para revisión. No se presenta como APK final de publicación.
+La llave de firma release y sus credenciales se conservan fuera de Git. La comprobación HTTPS del endpoint público no acredita por sí sola el flujo completo de acceso y captura en dos teléfonos.
