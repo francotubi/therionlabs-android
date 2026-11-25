@@ -138,7 +138,9 @@ class ProspectoRepository(
 
     suspend fun borrarProspecto(usuario: SesionUsuario, id: Int) {
         val datos = requireNotNull(dao.obtenerPorId(id))
-        require(datos.sincronizado != 0) { "Espera a que termine el envío antes de eliminar esta ficha." }
+        require(datos.sincronizado != 0) {
+            "Espera a que termine el envío antes de eliminar esta ficha."
+        }
         if (datos.sincronizado == 1) AdministracionRepository(db).eliminar(usuario, id)
         else
             db.withTransaction {

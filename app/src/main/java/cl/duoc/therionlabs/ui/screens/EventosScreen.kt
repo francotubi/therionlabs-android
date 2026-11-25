@@ -7,12 +7,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import cl.duoc.therionlabs.data.local.*
 import cl.duoc.therionlabs.data.viewmodel.EstadoHistorial
 import cl.duoc.therionlabs.domain.*
-import cl.duoc.therionlabs.network.ConfiguracionConexion
 import cl.duoc.therionlabs.network.RetrofitClient
 import cl.duoc.therionlabs.ui.components.*
 import cl.duoc.therionlabs.ui.theme.Amarillo
@@ -36,129 +34,61 @@ fun EventosScreen(
     abrir: (String) -> Unit,
     editar: (EventoEntity) -> Unit = {},
     actualizar: () -> Unit = {},
+    cerrar: (String) -> Unit = {},
 ) {
     val administrativo = PermisosPerfil.puedeAdministrar(usuario)
-    var claveAdmin by remember { mutableStateOf(ConfiguracionConexion.claveAdministrativa) }
-    var claveIngresada by remember { mutableStateOf("") }
-    var mostrarClave by remember { mutableStateOf(false) }
-
-    var totalesServidor by remember {
-        mutableStateOf<Map<String, Long>?>(null)
-    }
-
-    var consultandoTotales by remember {
-        mutableStateOf(false)
-    }
-
-    var errorTotales by remember {
-        mutableStateOf<String?>(null)
-    }
-
-    var numeroConsulta by remember {
-        mutableIntStateOf(0)
-    }
-    LaunchedEffect(administrativo, claveAdmin, numeroConsulta) {
-        if (!administrativo || claveAdmin.isBlank()) {
-            totalesServidor = null
-            return@LaunchedEffect
-        }
-
+    var totalesServidor by remember { mutableStateOf<Map<String, Long>?>(null) }
+    var consultandoTotales by remember { mutableStateOf(false) }
+    var errorTotales by remember { mutableStateOf<String?>(null) }
+    var numeroConsulta by remember { mutableIntStateOf(0) }
+    var cierrePendiente by remember { mutableStateOf<EventoEntity?>(null) }
+    LaunchedEffect(administrativo, numeroConsulta, eventos, historial.registros.size) {
+        if (!administrativo) return@LaunchedEffect
         consultandoTotales = true
-        errorTotales = null
-
         try {
-            val respuesta =
-                RetrofitClient.estadisticasAdminApi.obtenerProspectosPorEvento(claveAdmin)
-
-            if (respuesta.isSuccessful) {
-
-                val datos = respuesta.body()
-
-                if (datos != null) {
-                    ConfiguracionConexion.autorizar(claveAdmin)
-                    totalesServidor = datos
-                    errorTotales = null
-                } else {
-                    totalesServidor = null
-                    errorTotales = "El servidor devolvió una respuesta vacía."
-                }
-            } else {
-
-                totalesServidor = null
-
-                errorTotales =
-                    when (respuesta.code()) {
-                        401,
-                        403 -> "Clave administrativa incorrecta."
-                        else -> "Error del servidor: HTTP ${respuesta.code()}"
-                    }
-            }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-
+            totalesServidor =
+                cl.duoc.therionlabs.network.RespuestasServidor.exigir(
+                    RetrofitClient.estadisticasAdminApi.obtenerProspectosPorEvento()
+                )
+            errorTotales = null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             totalesServidor = null
-            errorTotales = "No se pudieron consultar las estadísticas del servidor."
+            errorTotales = e.message ?: "No se pudieron consultar los totales."
         } finally {
             consultandoTotales = false
         }
     }
-
-    if (administrativo && mostrarClave) {
+    cierrePendiente?.let { evento ->
         AlertDialog(
-            onDismissRequest = {
-                claveIngresada = ""
-                mostrarClave = false
-            },
-            title = {
-                Text("Estadísticas de Administración")
-            },
+            onDismissRequest = { cierrePendiente = null },
+            title = { Text("¿Cerrar evento?") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "Ingresa tu clave administrativa para consultar " +
-                            "los prospectos registrados en MariaDB."
-                    )
-
-                    OutlinedTextField(
-                        value = claveIngresada,
-                        onValueChange = { claveIngresada = it },
-                        label = { Text("Clave administrativa") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                Text(
+                    "${evento.nombre} dejará de aceptar nuevas capturas. Se conservarán los prospectos y seguimientos. Las fichas capturadas antes del cierre podrán sincronizarse después."
+                )
             },
             confirmButton = {
                 TextButton(
-                    enabled = claveIngresada.isNotBlank(),
+                    enabled = !ocupado,
                     onClick = {
-                        claveAdmin = claveIngresada
-                        claveIngresada = ""
-                        mostrarClave = false
-                        numeroConsulta++
+                        cierrePendiente = null
+                        cerrar(evento.id)
                     },
                 ) {
-                    Text("Consultar")
+                    Text("Cerrar evento")
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        claveIngresada = ""
-                        mostrarClave = false
-                    }
-                ) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = { cierrePendiente = null }) { Text("Cancelar") }
             },
         )
     }
     var busqueda by rememberSaveable { mutableStateOf("") }
     var eliminarEvento by remember { mutableStateOf<EventoEntity?>(null) }
     val visibles = eventos.filter {
-        (administrativo || it.activo) &&
+        (administrativo || it.activo || verRegistros) &&
             CatalogoRegional.normalizar("${it.nombre} ${it.colegio} ${it.comuna} ${it.fecha}")
                 .contains(CatalogoRegional.normalizar(busqueda))
     }
@@ -238,50 +168,18 @@ fun EventosScreen(
                 )
 
                 if (administrativo) {
-
                     OutlinedButton(
-                        onClick = {
-                            if (claveAdmin.isBlank()) {
-                                mostrarClave = true
-                            } else {
-                                numeroConsulta++
-                            }
-                        },
+                        onClick = { numeroConsulta++ },
                         enabled = !consultandoTotales,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(
-                            if (consultandoTotales) {
-                                "Consultando servidor..."
-                            } else if (claveAdmin.isBlank()) {
-                                "Consultar prospectos del servidor"
-                            } else {
-                                "Actualizar totales del servidor"
-                            }
-                        )
+                        Text(if (consultandoTotales) "Consultando…" else "Actualizar totales")
                     }
-
-                    if (consultandoTotales) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-
-                    errorTotales?.let { mensaje ->
+                    errorTotales?.let {
                         Text(
-                            text = mensaje,
+                            it,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
-                        )
-
-                        TextButton(onClick = { mostrarClave = true }) {
-                            Text("Ingresar clave nuevamente")
-                        }
-                    }
-
-                    if (totalesServidor != null) {
-                        Text(
-                            text = "Cantidades consultadas en MariaDB.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -307,7 +205,7 @@ fun EventosScreen(
                         if (administrativo)
                             "Crea el primer evento para habilitar el registro de prospectos."
                         else
-                            "Todavía no hay eventos. Administración debe crear uno en este dispositivo para comenzar."
+                            "Todavía no hay eventos abiertos. Actualiza la lista cuando administración publique uno."
                     } else "No se encontraron eventos para esta búsqueda."
                 )
             }
@@ -326,6 +224,11 @@ fun EventosScreen(
             ElevatedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(evento.nombre, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        if (evento.activo) "Abierto para captación"
+                        else "Evento cerrado · Historial disponible",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                     Text(evento.colegio, style = MaterialTheme.typography.titleSmall)
                     Text(
                         "${evento.fecha} · ${evento.comuna}",
@@ -347,7 +250,7 @@ fun EventosScreen(
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.labelLarge,
                     )
-                    if (!administrativo && !verRegistros)
+                    if (!administrativo && !verRegistros && evento.activo)
                         Button(
                             onClick = { capturar(evento) },
                             enabled = !ocupado,
@@ -370,6 +273,14 @@ fun EventosScreen(
                     }
 
                     if (administrativo) {
+                        if (evento.activo)
+                            OutlinedButton(
+                                onClick = { cierrePendiente = evento },
+                                enabled = !ocupado,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Cerrar evento")
+                            }
                         OutlinedButton(
                             onClick = { editar(evento) },
                             enabled = !ocupado,
@@ -441,7 +352,7 @@ fun CrearEventoScreen(
         item {
             TituloOperacion(
                 if (editando) "Editar evento" else "Crear evento",
-                "La actividad estará disponible para los captadores de este dispositivo.",
+                "La actividad estará disponible para los captadores conectados a este servidor.",
             )
         }
         item {

@@ -21,6 +21,7 @@ fun AccesoScreen(ocupado: Boolean, error: String?, ingresar: (String, String) ->
     var usuario by rememberSaveable { mutableStateOf("") }
     var clave by remember { mutableStateOf("") }
     var mostrarClave by remember { mutableStateOf(false) }
+    var configurarServidor by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.Center) {
         Column(
             Modifier.widthIn(max = 520.dp)
@@ -78,6 +79,10 @@ fun AccesoScreen(ocupado: Boolean, error: String?, ingresar: (String, String) ->
                     }
                 },
             )
+            TextButton(onClick = { configurarServidor = !configurarServidor }, enabled = !ocupado) {
+                Text("Configurar servidor")
+            }
+            if (configurarServidor) cl.duoc.therionlabs.ui.components.ConexionServidorSection()
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(
                 onClick = { ingresar(usuario, clave) },
@@ -95,7 +100,7 @@ fun AccesoScreen(ocupado: Boolean, error: String?, ingresar: (String, String) ->
                 Text(if (ocupado) "Ingresando…" else "Ingresar")
             }
             Text(
-                "Los eventos y registros se comparten entre los perfiles de este dispositivo.",
+                "El primer acceso necesita internet. Los captadores pueden volver a ingresar sin conexión durante 7 días después de validar su cuenta.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

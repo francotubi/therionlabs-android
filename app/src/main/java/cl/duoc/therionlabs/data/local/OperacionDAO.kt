@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OperacionDAO {
+    @Upsert suspend fun guardarUsuario(usuario: UsuarioEntity)
+
     @Upsert suspend fun actualizarEventos(datos: List<EventoEntity>)
 
     @Upsert suspend fun actualizarGestion(datos: SeguimientoEntity): Long

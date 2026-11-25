@@ -3,8 +3,7 @@ package cl.duoc.therionlabs.data.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import cl.duoc.therionlabs.data.local.AppDatabase
-import cl.duoc.therionlabs.data.repository.OperacionRepository
+import cl.duoc.therionlabs.data.repository.AccesoRepository
 import cl.duoc.therionlabs.domain.SesionUsuario
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AccesoViewModel(app: Application) : AndroidViewModel(app) {
-    private val repo = OperacionRepository(AppDatabase.getDatabase(app))
+    private val repo = AccesoRepository(app)
     private val _sesion = MutableStateFlow<SesionUsuario?>(null)
     val sesion = _sesion.asStateFlow()
     private val _ocupado = MutableStateFlow(false)
@@ -30,10 +29,8 @@ class AccesoViewModel(app: Application) : AndroidViewModel(app) {
         _error.value = null
         viewModelScope.launch {
             try {
-                repo.inicializar()
                 val usuario = repo.ingresar(nombre, clave)
-                if (usuario == null) _error.value = "Usuario o contraseña incorrectos."
-                else _sesion.value = usuario
+                _sesion.value = usuario
             } catch (cancelacion: CancellationException) {
                 throw cancelacion
             } catch (_: Exception) {
@@ -45,6 +42,9 @@ class AccesoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cerrarSesion() {
+        val token = cl.duoc.therionlabs.network.ConfiguracionConexion.credencialSesion
+        cl.duoc.therionlabs.network.ConfiguracionConexion.cerrarSesion()
+        viewModelScope.launch { repo.salir(token) }
         _sesion.value = null
         _error.value = null
     }

@@ -12,7 +12,7 @@ class AdministracionRepository(private val db: AppDatabase) {
         require(db.operacionDao().usuarioPorId(usuario.id)?.rol == Roles.ADMINISTRATIVO) {
             "Solo administración puede realizar esta operación."
         }
-        ConfiguracionConexion.exigirClave()
+        ConfiguracionConexion.exigirSesion()
     }
 
     suspend fun actualizarEvento(usuario: SesionUsuario, eventoId: String) {

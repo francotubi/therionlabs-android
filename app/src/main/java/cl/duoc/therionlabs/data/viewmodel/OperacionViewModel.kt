@@ -156,6 +156,14 @@ class OperacionViewModel(aplicacion: Application, private val guardado: SavedSta
         }
     }
 
+    fun cerrarEvento(id: String) {
+        val actual = usuario.value ?: return
+        if (!PermisosPerfil.puedeAdministrar(actual)) return
+        ejecutar("Evento cerrado. Se conserva su historial.") {
+            repositorio.cerrarEvento(actual, id)
+        }
+    }
+
     fun eliminarEvento(id: String) {
         val actual = usuario.value ?: return
         if (!PermisosPerfil.puedeAdministrar(actual)) return

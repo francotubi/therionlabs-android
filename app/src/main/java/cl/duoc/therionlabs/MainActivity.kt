@@ -19,22 +19,18 @@ import cl.duoc.therionlabs.data.viewmodel.*
 import cl.duoc.therionlabs.domain.*
 import cl.duoc.therionlabs.network.ConfiguracionConexion
 import cl.duoc.therionlabs.network.DispositivoTokenStore
-import cl.duoc.therionlabs.ui.components.ConexionServidorSection
 import cl.duoc.therionlabs.ui.components.EstadoSincronizacionSection
 import cl.duoc.therionlabs.ui.components.IconosFormulario
-import cl.duoc.therionlabs.ui.components.VincularDispositivoSection
 import cl.duoc.therionlabs.ui.screens.*
 import cl.duoc.therionlabs.ui.theme.TherionLabsAppTheme
 import cl.duoc.therionlabs.worker.SyncScheduler
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ConfiguracionConexion.inicializar(applicationContext)
         SyncScheduler.programar(applicationContext)
         val tokenStore = DispositivoTokenStore(this)
-
         enableEdgeToEdge()
         setContent {
             TherionLabsAppTheme {
@@ -66,7 +62,6 @@ fun Aplicacion(
             NavegacionSesion(actual, formulario, operacion) {
                 formulario.descartarFormulario()
                 operacion.limpiarEvento()
-                ConfiguracionConexion.cerrarSesion()
                 acceso.cerrarSesion()
             }
         }
@@ -97,7 +92,6 @@ private fun NavegacionSesion(
     var cerrarSesion by remember { mutableStateOf(false) }
     val capturaAbierta = ruta == "formscreen" || ruta == "selector_sede"
     val eventoAbierto = ruta == "crear_evento"
-
     fun navegar(destino: String) {
         navegador.navigate(destino) { launchSingleTop = true }
     }
@@ -156,7 +150,6 @@ private fun NavegacionSesion(
         abandonar { navegador.popBackStack() }
     }
     BackHandler(enabled = ocupado) {}
-
     salidaPendiente?.let {
         AlertDialog(
             onDismissRequest = { salidaPendiente = null },
@@ -202,7 +195,6 @@ private fun NavegacionSesion(
             },
             dismissButton = { TextButton(onClick = { cerrarSesion = false }) { Text("Cancelar") } },
         )
-
     Scaffold(
         snackbarHost = { SnackbarHost(avisos) },
         bottomBar = {
@@ -244,7 +236,7 @@ private fun NavegacionSesion(
                             )
                         },
                         label = {
-                            Text("Captadores")
+                            Text("Cuentas")
                         },
                     )
                 }
@@ -266,6 +258,7 @@ private fun NavegacionSesion(
                     operacion::eliminarEvento,
                     ::capturar,
                     { navegar("prospectos/$it") },
+                    cerrar = operacion::cerrarEvento,
                     editar = {
                         operacion.comenzarEdicion(it)
                         navegar("crear_evento")
@@ -361,22 +354,22 @@ private fun NavegacionSesion(
                             "Puedes registrar prospectos en eventos disponibles y consultar tus capturas."
                     )
                     Text(CatalogoRegional.region, style = MaterialTheme.typography.labelLarge)
-                    ConexionServidorSection(administrativo) { operacion.refrescar() }
+                    Text(
+                        "Servidor: ${ConfiguracionConexion.direccion}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        if (ConfiguracionConexion.credencialSesion.isBlank())
+                            "Acceso sin conexión. Inicia sesión con internet para realizar operaciones remotas."
+                        else "Cuenta validada en el servidor."
+                    )
                     if (PermisosPerfil.puedeCapturar(usuario)) {
                         HorizontalDivider()
-
-                        VincularDispositivoSection(
-                            usuarioId = usuario.id,
-                            onVinculacionExitosa = {
-                                formulario.actualizarIdentidadCaptador()
-                            },
+                        Text(
+                            "Captador: ${DispositivoTokenStore(androidx.compose.ui.platform.LocalContext.current).obtenerCodigoCaptador(usuario.id).orEmpty()}"
                         )
-
-                        HorizontalDivider()
-
                         EstadoSincronizacionSection(usuarioId = usuario.id)
                     }
-
                     Text(
                         "Los datos se conservan en este dispositivo. \nLa sesión termina al cerrar el proceso.",
                         style = MaterialTheme.typography.bodySmall,

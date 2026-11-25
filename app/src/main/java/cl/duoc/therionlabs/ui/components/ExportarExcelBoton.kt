@@ -8,54 +8,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
-import cl.duoc.therionlabs.network.ConfiguracionConexion
 import cl.duoc.therionlabs.network.ExcelDownloader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-fun ExportarExcelBoton(
-    eventoId: String,
-    ocupado: Boolean,
-) {
+fun ExportarExcelBoton(eventoId: String, ocupado: Boolean) {
     val contexto = LocalContext.current
     val alcance = rememberCoroutineScope()
-
-    var mostrarDialogo by remember {
-        mutableStateOf(false)
-    }
-
-    var clave by remember {
-        mutableStateOf(ConfiguracionConexion.claveAdministrativa)
-    }
-
-    var descargando by remember {
-        mutableStateOf(false)
-    }
-
-    val selectorArchivo =
+    var descargando by remember { mutableStateOf(false) }
+    val selector =
         rememberLauncherForActivityResult(
-            contract =
-                ActivityResultContracts.CreateDocument(
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+            ActivityResultContracts.CreateDocument(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         ) { uri ->
-            if (uri == null) {
-                clave = ""
-            } else {
+            if (uri != null) {
                 descargando = true
-
                 alcance.launch {
                     try {
-                        ExcelDownloader.descargarYGuardar(
-                            contexto = contexto,
-                            eventoId = eventoId,
-                            claveAdministrativa = clave,
-                            destino = uri,
-                        )
-
+                        ExcelDownloader.descargarYGuardar(contexto, eventoId, uri)
                         Toast.makeText(
                                 contexto,
                                 "Excel descargado correctamente",
@@ -67,82 +39,21 @@ fun ExportarExcelBoton(
                     } catch (e: Exception) {
                         Toast.makeText(
                                 contexto,
-                                e.message ?: "Error al descargar Excel",
+                                e.message ?: "No se pudo descargar el reporte.",
                                 Toast.LENGTH_LONG,
                             )
                             .show()
                     } finally {
-                        clave = ""
                         descargando = false
                     }
                 }
             }
         }
-
     Button(
-        onClick = {
-            mostrarDialogo = true
-        },
+        onClick = { selector.launch("TherionLabs_Evento_$eventoId.xlsx") },
         enabled = !ocupado && !descargando,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        if (descargando) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-            )
-        } else {
-            Text("Exportar Excel")
-        }
-    }
-
-    if (mostrarDialogo) {
-        AlertDialog(
-            onDismissRequest = {
-                clave = ""
-                mostrarDialogo = false
-            },
-            title = {
-                Text("Exportar reporte Excel")
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Ingresa tu clave administrativa para descargar el reporte.")
-
-                    OutlinedTextField(
-                        value = clave,
-                        onValueChange = { clave = it },
-                        label = {
-                            Text("Clave administrativa")
-                        },
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = clave.isNotBlank(),
-                    onClick = {
-                        mostrarDialogo = false
-
-                        selectorArchivo.launch("TherionLabs_Evento_${eventoId}.xlsx")
-                    },
-                ) {
-                    Text("Descargar")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        clave = ""
-                        mostrarDialogo = false
-                    }
-                ) {
-                    Text("Cancelar")
-                }
-            },
-        )
+        Text(if (descargando) "Descargando…" else "Exportar Excel")
     }
 }

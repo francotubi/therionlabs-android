@@ -2,11 +2,11 @@ package cl.duoc.therionlabs.network
 
 import android.content.Context
 
-class DispositivoTokenStore(context: Context) {
+class DispositivoTokenStore(context: Context, nombreAlmacen: String = "therionlabs_dispositivo") {
 
     private val preferencias =
         context.applicationContext.getSharedPreferences(
-            "therionlabs_dispositivo",
+            nombreAlmacen,
             Context.MODE_PRIVATE,
         )
 
@@ -14,11 +14,15 @@ class DispositivoTokenStore(context: Context) {
         require(usuarioId.isNotBlank())
         require(token.isNotBlank())
 
-        preferencias.edit().putString("device_token_$usuarioId", token.trim()).apply()
+        preferencias
+            .edit()
+            .putString("device_token_$usuarioId", AlmacenCredenciales.cifrar(token.trim()))
+            .apply()
     }
 
     fun obtenerToken(usuarioId: String): String? {
-        return preferencias.getString("device_token_$usuarioId", null)?.takeIf { it.isNotBlank() }
+        return AlmacenCredenciales.leer(preferencias.getString("device_token_$usuarioId", null))
+            ?.takeIf { it.isNotBlank() }
     }
 
     fun eliminarToken(usuarioId: String) {
@@ -54,12 +58,12 @@ class DispositivoTokenStore(context: Context) {
         }
 
         editor
-            .putString("device_token_$usuarioId", token.trim())
+            .putString("device_token_$usuarioId", AlmacenCredenciales.cifrar(token.trim()))
             .putString("captador_id_$usuarioId", captadorId)
             .putString("captador_codigo_$usuarioId", codigoCaptador)
             .putString(
                 "device_token_por_codigo_$codigoCaptador",
-                token.trim(),
+                AlmacenCredenciales.cifrar(token.trim()),
             )
             .apply()
     }
@@ -75,8 +79,11 @@ class DispositivoTokenStore(context: Context) {
     }
 
     fun obtenerTokenPorCodigo(codigoCaptador: String): String? {
-        return preferencias.getString("device_token_por_codigo_$codigoCaptador", null)?.takeIf {
-            it.isNotBlank()
-        }
+        return AlmacenCredenciales.leer(
+                preferencias.getString("device_token_por_codigo_$codigoCaptador", null)
+            )
+            ?.takeIf {
+                it.isNotBlank()
+            }
     }
 }

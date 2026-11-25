@@ -10,7 +10,7 @@ object ConfiguracionConexion {
     var direccion by mutableStateOf("http://10.0.2.2:8081/")
         private set
 
-    var claveAdministrativa by mutableStateOf("")
+    var credencialSesion by mutableStateOf("")
         private set
 
     fun inicializar(contexto: Context) {
@@ -44,19 +44,24 @@ object ConfiguracionConexion {
             .apply()
     }
 
-    fun autorizar(clave: String) {
-        claveAdministrativa = clave.trim()
+    var rolSesion by mutableStateOf("")
+        private set
+
+    fun autorizar(token: String, rol: String) {
+        credencialSesion = token
+        rolSesion = rol
     }
+
+    fun exigirSesion(): String =
+        credencialSesion.takeIf { it.isNotBlank() && rolSesion == "ADMINISTRATIVO" }
+            ?: throw IllegalArgumentException(
+                "Vuelve a iniciar sesión con internet para administrar el servidor."
+            )
 
     fun cerrarSesion() {
-        claveAdministrativa = ""
+        credencialSesion = ""
+        rolSesion = ""
     }
-
-    fun exigirClave(): String =
-        claveAdministrativa.takeIf { it.isNotBlank() }
-            ?: throw IllegalArgumentException(
-                "Configura la clave administrativa en Cuenta para conectar con el servidor."
-            )
 
     fun normalizarDireccion(valor: String): String {
         val uri = runCatching { URI(valor.trim()) }.getOrNull()

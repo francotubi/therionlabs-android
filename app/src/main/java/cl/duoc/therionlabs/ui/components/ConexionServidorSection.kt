@@ -5,21 +5,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import cl.duoc.therionlabs.network.*
+import cl.duoc.therionlabs.network.ConfiguracionConexion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-fun ConexionServidorSection(administrativo: Boolean, alGuardar: () -> Unit) {
+fun ConexionServidorSection() {
     val contexto = LocalContext.current
     val alcance = rememberCoroutineScope()
     var direccion by remember { mutableStateOf(ConfiguracionConexion.direccion) }
-    var clave by remember { mutableStateOf("") }
     var ocupado by remember { mutableStateOf(false) }
     var mensaje by remember { mutableStateOf<String?>(null) }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Conexión con el servidor", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             direccion,
@@ -29,53 +27,25 @@ fun ConexionServidorSection(administrativo: Boolean, alGuardar: () -> Unit) {
             enabled = !ocupado,
             modifier = Modifier.fillMaxWidth(),
         )
-        if (administrativo) {
-            OutlinedTextField(
-                clave,
-                { clave = it },
-                label = { Text("Clave administrativa del servidor") },
-                singleLine = true,
-                enabled = !ocupado,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                if (ConfiguracionConexion.claveAdministrativa.isBlank())
-                    "La clave se solicita una vez por sesión."
-                else "Administración conectada durante esta sesión.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
         Button(
             enabled = !ocupado,
             onClick = {
                 ocupado = true
-                mensaje = null
                 alcance.launch {
                     try {
                         ConfiguracionConexion.configurar(contexto, direccion)
-                        if (administrativo && clave.isNotBlank()) {
-                            RespuestasServidor.exigir(
-                                RetrofitClient.captadorAdminApi.listarCaptadores(clave.trim())
-                            )
-                            ConfiguracionConexion.autorizar(clave)
-                        }
-                        clave = ""
-                        mensaje = "Configuración guardada."
-                        alGuardar()
-                    } catch (cancelacion: CancellationException) {
-                        throw cancelacion
+                        mensaje = "Dirección guardada."
+                    } catch (error: CancellationException) {
+                        throw error
                     } catch (error: Exception) {
-                        mensaje =
-                            error.message
-                                ?: "No se pudo conectar. Revisa la dirección y la conexión."
+                        mensaje = error.message ?: "Revisa la dirección del servidor."
                     } finally {
                         ocupado = false
                     }
                 }
             },
         ) {
-            Text(if (ocupado) "Conectando…" else "Guardar conexión")
+            Text(if (ocupado) "Guardando…" else "Guardar dirección")
         }
         mensaje?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }

@@ -10,6 +10,9 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface EventoApi {
+    @POST("api/eventos/{id}/cerrar")
+    suspend fun cerrarEvento(@Path("id") id: String): Response<EventoResponse>
+
     @PUT("api/eventos/{id}")
     suspend fun actualizarEvento(
         @Path("id") id: String,

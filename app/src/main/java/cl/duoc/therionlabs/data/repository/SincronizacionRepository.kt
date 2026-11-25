@@ -60,7 +60,11 @@ class SincronizacionRepository(private val contexto: Context) {
     }
 
     suspend fun enviarGestiones(): Boolean {
-        if (ConfiguracionConexion.claveAdministrativa.isBlank()) return true
+        if (
+            ConfiguracionConexion.credencialSesion.isBlank() ||
+                ConfiguracionConexion.rolSesion != "ADMINISTRATIVO"
+        )
+            return true
         var completo = true
         for (gestion in db.operacionDao().gestionesPendientes()) {
             val prospecto = db.prospectoDao().obtenerPorId(gestion.prospectoId) ?: continue

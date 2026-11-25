@@ -9,60 +9,13 @@ import cl.duoc.therionlabs.network.RespuestasServidor
 import cl.duoc.therionlabs.network.RetrofitClient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 
 class OperacionRepository(private val db: AppDatabase) {
     private val dao = db.operacionDao()
     val eventos =
         dao.eventos().map { items -> items.filterNot { ReglasEvento.esDemostracion(it.id) } }
     val seguimientos = dao.seguimientos()
-
-    suspend fun inicializar() =
-        withContext(Dispatchers.IO) {
-            db.withTransaction {
-                if (dao.totalUsuarios() == 0) {
-                    val cuentas =
-                        listOf(
-                                listOf(
-                                    "CAP-01",
-                                    "captador",
-                                    "Captador de terreno",
-                                    Roles.CAPTADOR,
-                                    "Captador2026!",
-                                ),
-                                listOf(
-                                    "CAP-02",
-                                    "captador2",
-                                    "Segundo captador",
-                                    Roles.CAPTADOR,
-                                    "Captador2026!",
-                                ),
-                                listOf(
-                                    "ADM-01",
-                                    "administrativo",
-                                    "Administración de prospectos",
-                                    Roles.ADMINISTRATIVO,
-                                    "Admin2026!",
-                                ),
-                            )
-                            .map { fila ->
-                                val sal = ProtectorClave.generarSal()
-                                UsuarioEntity(
-                                    fila[0],
-                                    fila[1],
-                                    fila[2],
-                                    fila[3],
-                                    sal,
-                                    ProtectorClave.derivar(fila[4], sal),
-                                )
-                            }
-                    dao.insertarUsuarios(cuentas)
-                }
-            }
-        }
 
     suspend fun eliminarEvento(usuario: SesionUsuario, id: String) {
         exigirAdministracion(usuario)
@@ -75,7 +28,13 @@ class OperacionRepository(private val db: AppDatabase) {
         require(dao.usuarioPorId(usuario.id)?.rol == Roles.ADMINISTRATIVO) {
             "Solo administración puede realizar esta operación."
         }
-        ConfiguracionConexion.exigirClave()
+        ConfiguracionConexion.exigirSesion()
+    }
+
+    suspend fun cerrarEvento(usuario: SesionUsuario, id: String) {
+        exigirAdministracion(usuario)
+        RespuestasServidor.exigir(RetrofitClient.eventoApi.cerrarEvento(id))
+        descargarEventos()
     }
 
     suspend fun editarEvento(usuario: SesionUsuario, id: String, borrador: BorradorEvento) {
@@ -103,7 +62,7 @@ class OperacionRepository(private val db: AppDatabase) {
         usuario: SesionUsuario,
         borrador: BorradorEvento,
     ): String {
-        ConfiguracionConexion.exigirClave()
+        ConfiguracionConexion.exigirSesion()
         require(dao.usuarioPorId(usuario.id)?.rol == Roles.ADMINISTRATIVO) {
             "Solo administración puede crear eventos."
         }
@@ -206,17 +165,6 @@ class OperacionRepository(private val db: AppDatabase) {
 
         return eventosLocales.size
     }
-
-    suspend fun ingresar(nombre: String, clave: String): SesionUsuario? =
-        withContext(Dispatchers.IO) {
-            val usuario = dao.usuario(nombre.trim().lowercase(Locale.ROOT))
-            if (
-                usuario != null &&
-                    ProtectorClave.coincide(clave, usuario.salt, usuario.passwordHash)
-            )
-                SesionUsuario(usuario.id, usuario.nombre, usuario.rol)
-            else null
-        }
 
     suspend fun guardarGestion(
         usuario: SesionUsuario,

@@ -22,19 +22,16 @@ object RetrofitClient {
                             .readTimeout(30, TimeUnit.SECONDS)
                             .addInterceptor { cadena ->
                                 val solicitud = cadena.request()
-                                val ruta = solicitud.url().encodedPath()
-                                val clave = ConfiguracionConexion.claveAdministrativa
-                                val admin =
-                                    ruta.startsWith("/api/admin/") ||
-                                        (ruta.startsWith("/api/eventos") &&
-                                            solicitud.method() !in listOf("GET", "HEAD"))
+                                val token = ConfiguracionConexion.credencialSesion
                                 cadena.proceed(
                                     if (
-                                        admin &&
-                                            clave.isNotBlank() &&
-                                            solicitud.header("X-Admin-Key").isNullOrBlank()
+                                        token.isNotBlank() &&
+                                            solicitud.header("Authorization") == null
                                     )
-                                        solicitud.newBuilder().header("X-Admin-Key", clave).build()
+                                        solicitud
+                                            .newBuilder()
+                                            .header("Authorization", "Bearer $token")
+                                            .build()
                                     else solicitud
                                 )
                             }
@@ -45,6 +42,9 @@ object RetrofitClient {
         }
         return instancia!!
     }
+
+    val accesoApi
+        get() = conexion().create(AccesoApi::class.java)
 
     val prospectoApi
         get() = conexion().create(ProspectoApi::class.java)

@@ -1,28 +1,22 @@
 # Verificación
 
-## Comprobaciones automatizadas
+## Comprobaciones realizadas
 
-- Compilación del APK de revisión: correcta.
-- Pruebas unitarias: 14 ejecutadas, sin fallos. Incluyen validaciones, perfiles, mensajes del servidor, configuración de conexión, contratos Retrofit, identidad de participación y mapeo de fichas.
-- Análisis de Android: sin errores. Las advertencias restantes incluyen dependencias anteriores, recursos sin uso y recomendaciones de estilo.
-- Pruebas instrumentadas de Room: compiladas. Su ejecución requiere un teléfono o emulador conectado.
-- Migración 5 a 6: comparación SQL con el esquema generado por Room, incluyendo columnas, valores predeterminados, claves e índices. Se conserva una ficha con estado rechazado y una gestión anterior.
+- APK de revisión 2.2 generado e instalado en el emulador sin borrar los datos anteriores.
+- 14 pruebas unitarias de Android sin fallos: validaciones, roles y contratos HTTP.
+- 6 pruebas instrumentadas ejecutadas en el emulador sin fallos: migración de Room, persistencia, cifrado, asignación automática de captador, acceso sin red y conservación de la identidad de usuarios anteriores.
+- El acceso sin conexión requiere una cuenta previamente validada y se limita a siete días. Un rechazo HTTP del servidor no utiliza la caché como alternativa.
+- Análisis de Android sin errores. Las advertencias restantes se consultan en app/build/reports/lint-results-debug.html.
+- Backend: 9 pruebas de integración sin fallos, incluyendo cuentas, permisos, revocación, vencimiento de sesiones y cierre de eventos.
+- MySQL real: 9 comprobaciones nuevas correctas de acceso y cierre, incluyendo el envío único de capturas anteriores al cierre y la conservación de la ficha creada desde Android.
+- Flujo anterior comprobado manualmente con el emulador: creación del evento, ficha guardada sin red, envío automático al recuperar Wi-Fi, consulta administrativa y seguimiento guardado en el servidor.
+- Código fuente de Android y backend sin comentarios; backend sin README.
 
-## Comprobaciones pendientes en dispositivo
+## Pruebas pendientes de entrega
 
-1. Iniciar el backend actualizado con MySQL y configurar su dirección y clave en Cuenta.
-2. Crear un evento desde administración. Comprobar que otro dispositivo lo descarga.
-3. Registrar y vincular al captador. Descargar el evento antes de desconectar internet.
-4. Capturar una ficha sin conexión y verificar que permanece pendiente tras cerrar y abrir la aplicación.
-5. Recuperar la conexión y comprobar que la ficha se sincroniza una sola vez.
-6. Consultar la ficha desde administración en otra instalación.
-7. Editar la ficha y actualizar el listado.
-8. Registrar una gestión y comprobar su recepción en el servidor. Si no hay conexión, debe permanecer pendiente.
-9. Repetir un RUT en el mismo evento desde otro captador. El rechazo debe conservar el motivo.
-10. Corregir la ficha rechazada y solicitar sincronización nuevamente.
-11. Comprobar bajas, restricciones por rol, cámara, ubicación y exportación a Excel.
-12. Verificar la consulta de clima y que su fallo no impida registrar fichas.
+1. Desplegar en EC2 con HTTPS y configuración privada de credenciales.
+2. Probar la versión nueva en dos teléfonos físicos contra el mismo servidor.
+3. Medir y completar la cobertura del 80 % de lógica exigida por la pauta. El número de pruebas no acredita esa cobertura.
+4. Generar el APK release con su llave de entrega y agregar las capturas verificadas de firma y evidencia de Trello al README.
 
-## Entrega final
-
-Esta versión es de revisión. Todavía deben verificarse la integración con MySQL y el despliegue, medir y completar la cobertura requerida, y generar la firma de publicación.
+Esta compilación conserva la firma de depuración para revisión. No se presenta como APK final de publicación.
