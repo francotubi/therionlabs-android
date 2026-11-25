@@ -104,4 +104,16 @@ El backend se ejecuta como servicio en Ubuntu de EC2, con MySQL accesible dentro
 
 Se comprobó el flujo contra AWS desde un teléfono físico: inicio de sesión, creación de evento y cuenta de captador, captura sin conexión, envío automático al recuperar Wi-Fi y seguimiento administrativo guardado en el servidor. En una segunda instalación, el emulador mostró el evento y el total de prospectos del mismo servidor.
 
-La verificación técnica de la firma se conserva en [Firma-APK.txt](entrega/Firma-APK.txt). Quedan por incorporar las capturas del proceso de firma y la evidencia del tablero de trabajo. La prueba de renovación del certificado se mantiene pendiente de comprobación.
+La verificación técnica de la firma se conserva en [Firma-APK.txt](entrega/Firma-APK.txt).
+
+### Capturas de firma y APK
+
+Configuración de firma en Android Studio con la llave `therionlabs-release.jks`, alias `therionlabs` y contraseñas ocultas.
+
+![Configuración de firma con la llave JKS en Android Studio](entrega/capturas/Configuracion-firma.png)
+
+Archivo APK firmado disponible en la carpeta de entrega.
+
+![APK TherionLabs 2.3 en la carpeta de entrega](entrega/capturas/APK-firmado.png)
+
+Queda por incorporar la evidencia del tablero de trabajo. La prueba de renovación del certificado HTTPS se mantiene pendiente de comprobación.

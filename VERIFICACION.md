@@ -12,11 +12,12 @@
 - Flujo anterior comprobado manualmente con el emulador: creación del evento, ficha guardada sin red, envío automático al recuperar Wi-Fi, consulta administrativa y seguimiento guardado en el servidor.
 - Flujo contra AWS comprobado en un teléfono físico: acceso, evento y cuenta de captador, captura pendiente sin red, sincronización automática al recuperar Wi-Fi, consulta administrativa y seguimiento guardado en el servidor.
 - Segunda instalación comprobada en el emulador: consulta del mismo evento de AWS y del total de prospectos.
+- Capturas de la configuración de firma en Android Studio y del APK de entrega incorporadas al README.
 - Código fuente de Android y backend sin comentarios; backend sin README.
 
 ## Pruebas pendientes de entrega
 
 1. Despliegue en EC2 realizado con Ubuntu, MySQL, servicio systemd y Nginx. HTTPS público verificado con respuesta 200 de /api/eventos y certificado válido para la Elastic IP 184.192.154.68. Falta ejecutar la prueba de renovación automática.
-2. Agregar las capturas verificadas de firma y evidencia de Trello al README.
+2. Agregar la evidencia de Trello al README.
 
 La llave de firma release y sus credenciales se conservan fuera de Git. El flujo de acceso, captura y seguimiento contra AWS se comprobó en el teléfono y su consulta se verificó desde el emulador.
