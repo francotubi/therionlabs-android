@@ -50,7 +50,7 @@ fun SelectorSedeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SelectorSedeContent(
+internal fun SelectorSedeContent(
     formulario: FormularioProspectos,
     errores: ErroresFormularioProspectos,
     guardando: Boolean,

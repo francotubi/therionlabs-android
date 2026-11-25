@@ -7,10 +7,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import cl.duoc.therionlabs.data.local.*
 import cl.duoc.therionlabs.data.viewmodel.EstadoHistorial
 import cl.duoc.therionlabs.domain.*
+import cl.duoc.therionlabs.network.ConfiguracionConexion
+import cl.duoc.therionlabs.network.RetrofitClient
 import cl.duoc.therionlabs.ui.components.*
 import cl.duoc.therionlabs.ui.theme.Amarillo
 import cl.duoc.therionlabs.ui.theme.AzulMarino
@@ -18,9 +21,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-
-import cl.duoc.therionlabs.network.RetrofitClient
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import kotlinx.coroutines.CancellationException
 
 @Composable
@@ -34,11 +34,11 @@ fun EventosScreen(
     eliminar: (String) -> Unit,
     capturar: (EventoEntity) -> Unit,
     abrir: (String) -> Unit,
+    editar: (EventoEntity) -> Unit = {},
+    actualizar: () -> Unit = {},
 ) {
     val administrativo = PermisosPerfil.puedeAdministrar(usuario)
-
-    // Estadísticas reales obtenidas de MariaDB
-    var claveAdmin by remember { mutableStateOf("") }
+    var claveAdmin by remember { mutableStateOf(ConfiguracionConexion.claveAdministrativa) }
     var claveIngresada by remember { mutableStateOf("") }
     var mostrarClave by remember { mutableStateOf(false) }
 
@@ -57,11 +57,7 @@ fun EventosScreen(
     var numeroConsulta by remember {
         mutableIntStateOf(0)
     }
-
-    // Consultar estadísticas cuando Administración
-    // ingresa la clave o solicita actualizar.
     LaunchedEffect(administrativo, claveAdmin, numeroConsulta) {
-
         if (!administrativo || claveAdmin.isBlank()) {
             totalesServidor = null
             return@LaunchedEffect
@@ -71,39 +67,38 @@ fun EventosScreen(
         errorTotales = null
 
         try {
-            val respuesta = RetrofitClient.estadisticasAdminApi
-                .obtenerProspectosPorEvento(claveAdmin)
+            val respuesta =
+                RetrofitClient.estadisticasAdminApi.obtenerProspectosPorEvento(claveAdmin)
 
             if (respuesta.isSuccessful) {
 
                 val datos = respuesta.body()
 
                 if (datos != null) {
+                    ConfiguracionConexion.autorizar(claveAdmin)
                     totalesServidor = datos
                     errorTotales = null
                 } else {
                     totalesServidor = null
                     errorTotales = "El servidor devolvió una respuesta vacía."
                 }
-
             } else {
 
                 totalesServidor = null
 
-                errorTotales = when (respuesta.code()) {
-                    401, 403 -> "Clave administrativa incorrecta."
-                    else -> "Error del servidor: HTTP ${respuesta.code()}"
-                }
+                errorTotales =
+                    when (respuesta.code()) {
+                        401,
+                        403 -> "Clave administrativa incorrecta."
+                        else -> "Error del servidor: HTTP ${respuesta.code()}"
+                    }
             }
-
         } catch (error: CancellationException) {
             throw error
-
         } catch (error: Exception) {
 
             totalesServidor = null
             errorTotales = "No se pudieron consultar las estadísticas del servidor."
-
         } finally {
             consultandoTotales = false
         }
@@ -119,12 +114,10 @@ fun EventosScreen(
                 Text("Estadísticas de Administración")
             },
             text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         "Ingresa tu clave administrativa para consultar " +
-                                "los prospectos registrados en MariaDB."
+                            "los prospectos registrados en MariaDB."
                     )
 
                     OutlinedTextField(
@@ -133,7 +126,7 @@ fun EventosScreen(
                         label = { Text("Clave administrativa") },
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             },
@@ -145,7 +138,7 @@ fun EventosScreen(
                         claveIngresada = ""
                         mostrarClave = false
                         numeroConsulta++
-                    }
+                    },
                 ) {
                     Text("Consultar")
                 }
@@ -159,7 +152,7 @@ fun EventosScreen(
                 ) {
                     Text("Cancelar")
                 }
-            }
+            },
         )
     }
     var busqueda by rememberSaveable { mutableStateOf("") }
@@ -226,25 +219,22 @@ fun EventosScreen(
         }
 
         item {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = if (administrativo) {
-                        val total = totalesServidor?.values?.sum()
+                    text =
+                        if (administrativo) {
+                            val total = totalesServidor?.values?.sum()
 
-                        if (total != null) {
-                            "${eventos.size} eventos · $total prospectos en servidor"
+                            if (total != null) {
+                                "${eventos.size} eventos · $total prospectos en servidor"
+                            } else {
+                                "${eventos.size} eventos · Total del servidor no disponible"
+                            }
                         } else {
-                            "${eventos.size} eventos · Total del servidor no disponible"
-                        }
-
-                    } else {
-                        "${eventos.size} eventos · " +
+                            "${eventos.size} eventos · " +
                                 "${historial.registros.size} prospectos de tu cuenta"
-                    },
-                    style = MaterialTheme.typography.labelLarge
+                        },
+                    style = MaterialTheme.typography.labelLarge,
                 )
 
                 if (administrativo) {
@@ -258,7 +248,7 @@ fun EventosScreen(
                             }
                         },
                         enabled = !consultandoTotales,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
                             if (consultandoTotales) {
@@ -272,21 +262,17 @@ fun EventosScreen(
                     }
 
                     if (consultandoTotales) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     }
 
                     errorTotales?.let { mensaje ->
                         Text(
                             text = mensaje,
                             color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
 
-                        TextButton(
-                            onClick = { mostrarClave = true }
-                        ) {
+                        TextButton(onClick = { mostrarClave = true }) {
                             Text("Ingresar clave nuevamente")
                         }
                     }
@@ -295,7 +281,7 @@ fun EventosScreen(
                         Text(
                             text = "Cantidades consultadas en MariaDB.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -325,6 +311,16 @@ fun EventosScreen(
                     } else "No se encontraron eventos para esta búsqueda."
                 )
             }
+        item {
+            OutlinedButton(
+                onClick = actualizar,
+                enabled = !ocupado,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Actualizar eventos")
+            }
+        }
+        if (!verRegistros) item { ClimaSection() }
         items(visibles, key = { it.id }) { evento ->
             val prospectos = historial.registros.filter { it.eventoId == evento.id }
             ElevatedCard(Modifier.fillMaxWidth()) {
@@ -337,18 +333,19 @@ fun EventosScreen(
                     )
                     Text(evento.actividad, style = MaterialTheme.typography.bodySmall)
                     Text(
-                        text = if (administrativo) {
-                            val cantidad = totalesServidor?.get(evento.id) ?: 0L
-                            if (totalesServidor != null) {
-                                "$cantidad prospectos en servidor"
+                        text =
+                            if (administrativo) {
+                                val cantidad = totalesServidor?.get(evento.id) ?: 0L
+                                if (totalesServidor != null) {
+                                    "$cantidad prospectos en servidor"
+                                } else {
+                                    "Total de prospectos no disponible"
+                                }
                             } else {
-                                "Total de prospectos no disponible"
-                            }
-                        } else {
-                            "${prospectos.size} prospectos de tu cuenta"
-                        },
+                                "${prospectos.size} prospectos de tu cuenta"
+                            },
                         color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge
+                        style = MaterialTheme.typography.labelLarge,
                     )
                     if (!administrativo && !verRegistros)
                         Button(
@@ -361,7 +358,7 @@ fun EventosScreen(
                     OutlinedButton(
                         onClick = { abrir(evento.id) },
                         enabled = !ocupado,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
                             if (administrativo) {
@@ -372,22 +369,28 @@ fun EventosScreen(
                         )
                     }
 
-
                     if (administrativo) {
+                        OutlinedButton(
+                            onClick = { editar(evento) },
+                            enabled = !ocupado,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Editar evento")
+                        }
                         ExportarExcelBoton(
                             eventoId = evento.id,
-                            ocupado = ocupado
+                            ocupado = ocupado,
                         )
                     }
                     if (
                         administrativo &&
-                        !ocupado &&
-                        !consultandoTotales &&
-                        totalesServidor != null &&
-                        (totalesServidor?.get(evento.id) ?: 0L) == 0L &&
-                        !historial.cargando &&
-                        historial.error == null &&
-                        prospectos.isEmpty()
+                            !ocupado &&
+                            !consultandoTotales &&
+                            totalesServidor != null &&
+                            (totalesServidor?.get(evento.id) ?: 0L) == 0L &&
+                            !historial.cargando &&
+                            historial.error == null &&
+                            prospectos.isEmpty()
                     ) {
                         TextButton(onClick = { eliminarEvento = evento }, enabled = !ocupado) {
                             Text("Eliminar evento", color = MaterialTheme.colorScheme.error)
@@ -420,7 +423,6 @@ fun EventosScreen(
     }
 }
 
-
 @Composable
 fun CrearEventoScreen(
     datos: BorradorEvento,
@@ -429,6 +431,7 @@ fun CrearEventoScreen(
     cambiar: ((BorradorEvento) -> BorradorEvento) -> Unit,
     guardar: () -> Unit,
     volver: () -> Unit,
+    editando: Boolean = false,
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -437,7 +440,7 @@ fun CrearEventoScreen(
     ) {
         item {
             TituloOperacion(
-                "Crear evento",
+                if (editando) "Editar evento" else "Crear evento",
                 "La actividad estará disponible para los captadores de este dispositivo.",
             )
         }
@@ -460,8 +463,6 @@ fun CrearEventoScreen(
             )
         }
 
-
-
         item {
             var mostrarCalendario by remember {
                 mutableStateOf(false)
@@ -471,23 +472,22 @@ fun CrearEventoScreen(
             val fechaMaxima = hoy.plusYears(5)
             val formatoFecha = DateTimeFormatter.ofPattern("dd/MM/uuuu")
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "Fecha del evento",
-                    style = MaterialTheme.typography.labelLarge
+                    style = MaterialTheme.typography.labelLarge,
                 )
 
                 OutlinedButton(
                     onClick = { mostrarCalendario = true },
                     enabled = !ocupado,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        text = datos.fecha.ifBlank {
-                            "Seleccionar fecha"
-                        }
+                        text =
+                            datos.fecha.ifBlank {
+                                "Seleccionar fecha"
+                            }
                     )
                 }
 
@@ -495,7 +495,7 @@ fun CrearEventoScreen(
                     Text(
                         text = mensaje,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -504,37 +504,34 @@ fun CrearEventoScreen(
 
                 val fechaInicial = runCatching {
                     LocalDate.parse(datos.fecha, formatoFecha)
-                }.getOrNull()?.takeIf {
-                    !it.isBefore(hoy) && !it.isAfter(fechaMaxima)
                 }
-
-                val estadoCalendario = rememberDatePickerState(
-                    initialSelectedDateMillis = fechaInicial
-                        ?.atStartOfDay(ZoneOffset.UTC)
-                        ?.toInstant()
-                        ?.toEpochMilli(),
-                    yearRange = hoy.year..fechaMaxima.year,
-                    selectableDates = object : SelectableDates {
-
-                        override fun isSelectableDate(
-                            utcTimeMillis: Long
-                        ): Boolean {
-                            val fecha = Instant
-                                .ofEpochMilli(utcTimeMillis)
-                                .atZone(ZoneOffset.UTC)
-                                .toLocalDate()
-
-                            return !fecha.isBefore(hoy) &&
-                                    !fecha.isAfter(fechaMaxima)
-                        }
-
-                        override fun isSelectableYear(
-                            year: Int
-                        ): Boolean {
-                            return year in hoy.year..fechaMaxima.year
-                        }
+                    .getOrNull()
+                    ?.takeIf {
+                        !it.isBefore(hoy) && !it.isAfter(fechaMaxima)
                     }
-                )
+
+                val estadoCalendario =
+                    rememberDatePickerState(
+                        initialSelectedDateMillis =
+                            fechaInicial?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli(),
+                        yearRange = hoy.year..fechaMaxima.year,
+                        selectableDates =
+                            object : SelectableDates {
+
+                                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                                    val fecha =
+                                        Instant.ofEpochMilli(utcTimeMillis)
+                                            .atZone(ZoneOffset.UTC)
+                                            .toLocalDate()
+
+                                    return !fecha.isBefore(hoy) && !fecha.isAfter(fechaMaxima)
+                                }
+
+                                override fun isSelectableYear(year: Int): Boolean {
+                                    return year in hoy.year..fechaMaxima.year
+                                }
+                            },
+                    )
 
                 DatePickerDialog(
                     onDismissRequest = {
@@ -543,24 +540,20 @@ fun CrearEventoScreen(
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                estadoCalendario.selectedDateMillis
-                                    ?.let { millis ->
-
-                                        val fecha = Instant
-                                            .ofEpochMilli(millis)
+                                estadoCalendario.selectedDateMillis?.let { millis ->
+                                    val fecha =
+                                        Instant.ofEpochMilli(millis)
                                             .atZone(ZoneOffset.UTC)
                                             .toLocalDate()
 
-                                        cambiar {
-                                            it.copy(
-                                                fecha = fecha.format(formatoFecha)
-                                            )
-                                        }
+                                    cambiar {
+                                        it.copy(fecha = fecha.format(formatoFecha))
                                     }
+                                }
 
                                 mostrarCalendario = false
                             },
-                            enabled = estadoCalendario.selectedDateMillis != null
+                            enabled = estadoCalendario.selectedDateMillis != null,
                         ) {
                             Text("Aceptar")
                         }
@@ -573,15 +566,12 @@ fun CrearEventoScreen(
                         ) {
                             Text("Cancelar")
                         }
-                    }
+                    },
                 ) {
-                    DatePicker(
-                        state = estadoCalendario
-                    )
+                    DatePicker(state = estadoCalendario)
                 }
             }
         }
-
 
         item {
             CampoSeleccion(
@@ -605,7 +595,10 @@ fun CrearEventoScreen(
         }
         item {
             Button(onClick = guardar, enabled = !ocupado, modifier = Modifier.fillMaxWidth()) {
-                Text(if (ocupado) "Guardando…" else "Crear evento")
+                Text(
+                    if (ocupado) "Guardando…"
+                    else if (editando) "Guardar cambios" else "Crear evento"
+                )
             }
         }
         item { TextButton(onClick = volver, enabled = !ocupado) { Text("Volver a eventos") } }

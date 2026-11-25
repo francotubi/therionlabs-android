@@ -45,7 +45,7 @@ fun FormScreen(
 }
 
 @Composable
-private fun FormScreenContent(
+internal fun FormScreenContent(
     formulario: FormularioProspectos,
     errores: ErroresFormularioProspectos,
     onFormularioChange: (FormularioProspectos) -> Unit,

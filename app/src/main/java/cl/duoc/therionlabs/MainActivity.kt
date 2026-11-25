@@ -6,6 +6,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -15,28 +17,23 @@ import androidx.navigation.compose.*
 import cl.duoc.therionlabs.data.local.EventoEntity
 import cl.duoc.therionlabs.data.viewmodel.*
 import cl.duoc.therionlabs.domain.*
+import cl.duoc.therionlabs.network.ConfiguracionConexion
+import cl.duoc.therionlabs.network.DispositivoTokenStore
+import cl.duoc.therionlabs.ui.components.ConexionServidorSection
+import cl.duoc.therionlabs.ui.components.EstadoSincronizacionSection
 import cl.duoc.therionlabs.ui.components.IconosFormulario
+import cl.duoc.therionlabs.ui.components.VincularDispositivoSection
 import cl.duoc.therionlabs.ui.screens.*
 import cl.duoc.therionlabs.ui.theme.TherionLabsAppTheme
-import cl.duoc.therionlabs.network.DispositivoTokenStore
-import cl.duoc.therionlabs.ui.components.VincularDispositivoSection
-import cl.duoc.therionlabs.ui.components.EstadoSincronizacionSection
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
+import cl.duoc.therionlabs.worker.SyncScheduler
 
 class MainActivity : ComponentActivity() {
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // SOLO PARA PRUEBAS LOCALES
-        // No escribir el token directamente en el código.
+        ConfiguracionConexion.inicializar(applicationContext)
+        SyncScheduler.programar(applicationContext)
         val tokenStore = DispositivoTokenStore(this)
-
-        // Aquí todavía no registramos el token.
-        // Lo haremos con un mecanismo de configuración
-        // para evitar incluir credenciales en el APK.
 
         enableEdgeToEdge()
         setContent {
@@ -46,7 +43,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 
 @Composable
 fun Aplicacion(
@@ -70,6 +66,7 @@ fun Aplicacion(
             NavegacionSesion(actual, formulario, operacion) {
                 formulario.descartarFormulario()
                 operacion.limpiarEvento()
+                ConfiguracionConexion.cerrarSesion()
                 acceso.cerrarSesion()
             }
         }
@@ -90,9 +87,10 @@ private fun NavegacionSesion(
     val historial by formulario.estadoHistorial.collectAsState(initial = EstadoHistorial())
     val borradorEvento by operacion.borradorEvento.collectAsState()
     val erroresEvento by operacion.erroresEvento.collectAsState()
+    val eventoEditando by operacion.eventoEditando.collectAsState()
     val operacionOcupada by operacion.ocupado.collectAsState()
     val mensaje by operacion.mensaje.collectAsState()
-    val ocupado = formulario.guardando || operacionOcupada
+    val ocupado = formulario.guardando || formulario.procesando || operacionOcupada
     val administrativo = PermisosPerfil.puedeAdministrar(usuario)
     val avisos = remember { SnackbarHostState() }
     var salidaPendiente by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -242,15 +240,14 @@ private fun NavegacionSesion(
                         icon = {
                             Icon(
                                 IconosFormulario.Persona,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         label = {
                             Text("Captadores")
-                        }
+                        },
                     )
                 }
-
             }
         },
     ) { espacio ->
@@ -262,10 +259,18 @@ private fun NavegacionSesion(
                     historial,
                     ocupado,
                     destino == "registros",
-                    { navegar("crear_evento") },
+                    {
+                        operacion.limpiarEvento()
+                        navegar("crear_evento")
+                    },
                     operacion::eliminarEvento,
                     ::capturar,
                     { navegar("prospectos/$it") },
+                    editar = {
+                        operacion.comenzarEdicion(it)
+                        navegar("crear_evento")
+                    },
+                    actualizar = { operacion.refrescar() },
                 )
             }
             composable("gestion_captadores") {
@@ -288,6 +293,7 @@ private fun NavegacionSesion(
                         operacion::actualizarEvento,
                         { operacion.crearEvento { navegador.popBackStack() } },
                         { abandonar { navegador.popBackStack() } },
+                        editando = eventoEditando.isNotBlank(),
                     )
                 else AccesoRestringido()
             }
@@ -317,6 +323,9 @@ private fun NavegacionSesion(
             }
             composable("prospectos/{id}") { destino ->
                 val id = destino.arguments?.getString("id").orEmpty()
+                LaunchedEffect(id) {
+                    if (administrativo && id != "anteriores") operacion.refrescar(id)
+                }
                 if (id != "anteriores" || administrativo) {
                     HistoryScreen(
                         formulario,
@@ -327,6 +336,7 @@ private fun NavegacionSesion(
                         ocupado,
                         {},
                         operacion::guardarGestion,
+                        actualizar = { operacion.refrescar(id) },
                     ) {
                         cambiarSeccion("registros")
                     }
@@ -334,12 +344,12 @@ private fun NavegacionSesion(
             }
             composable("cuenta") {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .safeDrawingPadding()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier =
+                        Modifier.fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .safeDrawingPadding()
+                            .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text("Mi cuenta", style = MaterialTheme.typography.headlineMedium)
                     Text(usuario.nombre, style = MaterialTheme.typography.titleLarge)
@@ -351,6 +361,7 @@ private fun NavegacionSesion(
                             "Puedes registrar prospectos en eventos disponibles y consultar tus capturas."
                     )
                     Text(CatalogoRegional.region, style = MaterialTheme.typography.labelLarge)
+                    ConexionServidorSection(administrativo) { operacion.refrescar() }
                     if (PermisosPerfil.puedeCapturar(usuario)) {
                         HorizontalDivider()
 
@@ -358,16 +369,12 @@ private fun NavegacionSesion(
                             usuarioId = usuario.id,
                             onVinculacionExitosa = {
                                 formulario.actualizarIdentidadCaptador()
-                            }
+                            },
                         )
-
 
                         HorizontalDivider()
 
-                        EstadoSincronizacionSection(
-                            usuarioId = usuario.id
-                        )
-
+                        EstadoSincronizacionSection(usuarioId = usuario.id)
                     }
 
                     Text(

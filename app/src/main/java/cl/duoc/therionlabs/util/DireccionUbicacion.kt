@@ -10,13 +10,11 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Convierte coordenadas en una dirección legible sin impedir guardar si el servicio falla. */
 object DireccionUbicacion {
 
     suspend fun buscar(contexto: Context, latitud: Double, longitud: Double): String? {
         if (!Geocoder.isPresent()) return null
 
-        // El registro puede seguir guardándose con coordenadas al agotar esta espera.
         return withTimeoutOrNull(8000L) {
             val geocoder = Geocoder(contexto, Locale.getDefault())
             val direcciones = consultar(geocoder, latitud, longitud)
@@ -57,7 +55,7 @@ object DireccionUbicacion {
                 completar(null)
             }
         } else {
-            // La API antigua es bloqueante: se ejecuta fuera del hilo de la interfaz.
+
             val trabajo = Thread {
                 try {
                     @Suppress("DEPRECATION")

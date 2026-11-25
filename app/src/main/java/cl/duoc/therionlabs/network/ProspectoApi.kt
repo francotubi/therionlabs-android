@@ -10,12 +10,12 @@ interface ProspectoApi {
     @POST("api/prospectos/sync")
     suspend fun sincronizarProspecto(
         @Header("X-Device-Token") token: String,
-        @Body prospecto: ProspectoSyncRequest
+        @Body prospecto: ProspectoSyncRequest,
     ): Response<RespuestaSync>
 }
 
 data class RespuestaSync(
     val prospectoId: String?,
     val estado: String,
-    val mensaje: String
+    val mensaje: String,
 )

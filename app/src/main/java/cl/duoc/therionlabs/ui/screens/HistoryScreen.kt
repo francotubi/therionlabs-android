@@ -50,10 +50,21 @@ fun HistoryScreen(
     ocupado: Boolean,
     alCambiarBorrador: (Boolean) -> Unit,
     guardarGestion: (Int, String, String, String, () -> Unit) -> Unit,
+    actualizar: () -> Unit = {},
     alVolver: () -> Unit,
 ) {
     val estado by prospectoViewModel.estadoHistorial.collectAsState(initial = EstadoHistorial())
 
+    var prospectoAEditar by remember { mutableStateOf<ProspectoEntity?>(null) }
+    prospectoAEditar?.let { seleccionado ->
+        EditorFichaDialog(
+            seleccionado,
+            ocupado || prospectoViewModel.procesando,
+            prospectoViewModel::editarProspecto,
+        ) {
+            prospectoAEditar = null
+        }
+    }
     var prospectoABorrar by remember {
         mutableStateOf<ProspectoEntity?>(null)
     }
@@ -63,7 +74,9 @@ fun HistoryScreen(
         titulo = eventoNombre,
         admin = PermisosPerfil.puedeAdministrar(user),
         gestiones = gestiones,
-        ocupado = ocupado,
+        ocupado = ocupado || prospectoViewModel.procesando,
+        actualizar = actualizar,
+        onEditar = { prospectoAEditar = it },
         alCambiarBorrador = alCambiarBorrador,
         guardarGestion = guardarGestion,
         onBorrarProspecto = { prospecto ->
@@ -87,7 +100,7 @@ fun HistoryScreen(
                 Text(
                     "Se eliminará el registro de " +
                         "${seleccionado.nombre} ${seleccionado.apellidos} " +
-                        "de este teléfono."
+                        ". Si ya fue sincronizado, la baja se registra también en el servidor."
                 )
             },
             confirmButton = {
@@ -123,7 +136,7 @@ fun HistoryScreen(
                 prospectoViewModel.limpiarErrorBorrado()
             },
             title = {
-                Text("No se pudo borrar")
+                Text("No se pudo completar la operación")
             },
             text = {
                 Text(error)
@@ -150,6 +163,8 @@ private fun HistoryScreenContent(
     ocupado: Boolean = false,
     alCambiarBorrador: (Boolean) -> Unit = {},
     guardarGestion: (Int, String, String, String, () -> Unit) -> Unit = { _, _, _, _, _ -> },
+    actualizar: () -> Unit = {},
+    onEditar: (ProspectoEntity) -> Unit = {},
     onBorrarProspecto: (ProspectoEntity) -> Unit = {},
     onVolverAlFormulario: () -> Unit,
 ) {
@@ -176,7 +191,15 @@ private fun HistoryScreenContent(
         }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { BarraSuperior("Prospectos del evento", "Eventos", onVolverAlFormulario) },
+        topBar = {
+            Column {
+                BarraSuperior("Prospectos del evento", "Eventos", onVolverAlFormulario)
+                if (admin)
+                    TextButton(onClick = actualizar, enabled = !ocupado) {
+                        Text(if (ocupado) "Actualizando…" else "Actualizar desde el servidor")
+                    }
+            }
+        },
     ) { padding ->
         BoxWithConstraints(
             Modifier.fillMaxSize().padding(padding),
@@ -333,6 +356,7 @@ private fun HistoryScreenContent(
                                     gestiones = gestiones,
                                     ocupado = ocupado,
                                     guardarGestion = guardarGestion,
+                                    onEditar = { onEditar(prospecto) },
                                     onBorrar = {
                                         onBorrarProspecto(prospecto)
                                     },
@@ -407,6 +431,7 @@ private fun TarjetaProspecto(
     ocupado: Boolean,
     alCambiarBorrador: (Boolean) -> Unit,
     guardarGestion: (Int, String, String, String, () -> Unit) -> Unit,
+    onEditar: () -> Unit,
     onBorrar: () -> Unit,
 ) {
     var gestionar by rememberSaveable(prospecto.id) { mutableStateOf(false) }
@@ -497,6 +522,25 @@ private fun TarjetaProspecto(
                         "Captador",
                         prospecto.captador.ifBlank { "Sin asignación anterior" },
                     )
+                    Text(
+                        when (prospecto.sincronizado) {
+                            1 -> "Sincronizado"
+                            2 -> "Rechazado: ${prospecto.motivoRechazo}"
+                            else -> "Pendiente de envío"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (
+                        (admin && prospecto.sincronizado == 1) ||
+                            (!admin && prospecto.sincronizado != 1)
+                    )
+                        OutlinedButton(
+                            onClick = onEditar,
+                            enabled = !ocupado,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Editar ficha")
+                        }
                     DatoDetalle("RUT", prospecto.rut)
                     DatoDetalle("Fecha de nacimiento", prospecto.fechaNacimiento)
                     DatoDetalle("Comuna de residencia", prospecto.comunaResidencia)

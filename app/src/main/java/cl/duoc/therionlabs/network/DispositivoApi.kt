@@ -1,4 +1,3 @@
-
 package cl.duoc.therionlabs.network
 
 import retrofit2.Response
@@ -17,5 +16,5 @@ data class VerificacionDispositivoResponse(
     val dispositivoId: String,
     val captadorId: String,
     val identificadorLocal: String,
-    val autorizado: Boolean
+    val autorizado: Boolean,
 )

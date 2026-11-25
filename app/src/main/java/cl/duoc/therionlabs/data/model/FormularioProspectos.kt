@@ -3,7 +3,6 @@ package cl.duoc.therionlabs.data.model
 import cl.duoc.therionlabs.domain.CatalogoRegional
 import java.io.Serializable
 
-// Solo contiene datos: no depende de Compose, Room ni del ViewModel.
 data class FormularioProspectos(
     val eventoId: String = "",
     val eventoNombre: String = "",
@@ -34,7 +33,6 @@ data class FormularioProspectos(
     val autorizaContacto: Boolean = false,
 ) : Serializable
 
-// null significa que ese campo no tiene un mensaje de error.
 data class ErroresFormularioProspectos(
     val rut: String? = null,
     val nombre: String? = null,

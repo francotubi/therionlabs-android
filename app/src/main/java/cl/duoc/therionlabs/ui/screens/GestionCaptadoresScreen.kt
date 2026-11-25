@@ -1,10 +1,9 @@
-
 package cl.duoc.therionlabs.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -13,35 +12,23 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-
 import cl.duoc.therionlabs.network.CaptadorRegistradoResponse
+import cl.duoc.therionlabs.network.ConfiguracionConexion
 import cl.duoc.therionlabs.network.CrearCaptadorRequest
 import cl.duoc.therionlabs.network.RetrofitClient
-
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-fun GestionCaptadoresScreen(
-    onVolver: () -> Unit
-) {
-    // Datos del nuevo captador
+fun GestionCaptadoresScreen(onVolver: () -> Unit) {
     var nombre by remember { mutableStateOf("") }
     var identificador by remember { mutableStateOf("") }
-    var claveAdmin by remember { mutableStateOf("") }
-
-    // Estados de carga
+    var claveAdmin by remember { mutableStateOf(ConfiguracionConexion.claveAdministrativa) }
     var registrando by remember { mutableStateOf(false) }
     var cargandoLista by remember { mutableStateOf(false) }
-
-    // Captadores registrados
     var captadores by remember {
-        mutableStateOf(
-            emptyList<CaptadorRegistradoResponse>()
-        )
+        mutableStateOf(emptyList<CaptadorRegistradoResponse>())
     }
-
-    // Mensajes
     var mensajeError by remember {
         mutableStateOf<String?>(null)
     }
@@ -53,8 +40,6 @@ fun GestionCaptadoresScreen(
     var errorLista by remember {
         mutableStateOf<String?>(null)
     }
-
-    // Captador seleccionado para generar token
     var captadorParaToken by remember {
         mutableStateOf<CaptadorRegistradoResponse?>(null)
     }
@@ -63,44 +48,31 @@ fun GestionCaptadoresScreen(
     val scope = rememberCoroutineScope()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-
         Text(
             text = "Gestión de captadores",
-            style = MaterialTheme.typography.headlineSmall
+            style = MaterialTheme.typography.headlineSmall,
         )
 
-        Text(
-            text = "Registra captadores, consulta sus datos " +
-                    "y administra sus credenciales."
-        )
+        Text(text = "Registra captadores, consulta sus datos " + "y administra sus credenciales.")
 
         HorizontalDivider()
 
         Text(
             text = "Registrar nuevo captador",
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
         )
-
-        // Nombre
         OutlinedTextField(
             value = nombre,
             onValueChange = { nombre = it },
             label = { Text("Nombre completo") },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Words
-            ),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             enabled = !registrando && !cargandoLista,
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
-
-        // Código CAP-XX
         OutlinedTextField(
             value = identificador,
             onValueChange = {
@@ -111,10 +83,8 @@ fun GestionCaptadoresScreen(
             },
             enabled = !registrando && !cargandoLista,
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
-
-        // Clave administrativa
         OutlinedTextField(
             value = claveAdmin,
             onValueChange = { claveAdmin = it },
@@ -122,7 +92,7 @@ fun GestionCaptadoresScreen(
             visualTransformation = PasswordVisualTransformation(),
             enabled = !registrando && !cargandoLista,
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Button(
@@ -138,13 +108,15 @@ fun GestionCaptadoresScreen(
                     try {
                         val api = RetrofitClient.captadorAdminApi
 
-                        val respuesta = api.registrarCaptador(
-                            clave = claveAdmin,
-                            datos = CrearCaptadorRequest(
-                                identificadorLocal = identificador,
-                                nombre = nombre.trim()
+                        val respuesta =
+                            api.registrarCaptador(
+                                clave = claveAdmin,
+                                datos =
+                                    CrearCaptadorRequest(
+                                        identificadorLocal = identificador,
+                                        nombre = nombre.trim(),
+                                    ),
                             )
-                        )
 
                         if (!respuesta.isSuccessful) {
                             error(
@@ -157,89 +129,78 @@ fun GestionCaptadoresScreen(
                             )
                         }
 
-                        val captador = respuesta.body()
-                            ?: error(
-                                "El servidor no devolvió el captador."
-                            )
+                        val captador =
+                            respuesta.body() ?: error("El servidor no devolvió el captador.")
 
                         captadorCreado = captador.id
-
-                        // Generar token
-                        val respuestaToken = api.generarToken(
-                            clave = claveAdmin,
-                            captadorId = captador.id
-                        )
+                        val respuestaToken =
+                            api.generarToken(
+                                clave = claveAdmin,
+                                captadorId = captador.id,
+                            )
 
                         if (!respuestaToken.isSuccessful) {
                             error(
                                 "Captador creado, pero falló el token. " +
-                                        "HTTP ${respuestaToken.code()}"
+                                    "HTTP ${respuestaToken.code()}"
                             )
                         }
 
-                        val tokenNuevo = respuestaToken.body()
-                            ?.credencial
-                            ?.takeIf { it.isNotBlank() }
-                            ?: error("No se recibió el token.")
+                        val tokenNuevo =
+                            respuestaToken.body()?.credencial?.takeIf { it.isNotBlank() }
+                                ?: error("No se recibió el token.")
 
-                        clipboard.setText(
-                            AnnotatedString(tokenNuevo)
-                        )
-
-                        // Actualizar lista visible
-                        captadores = (
-                                captadores.filterNot {
+                        clipboard.setText(AnnotatedString(tokenNuevo))
+                        captadores =
+                            (captadores.filterNot {
                                     it.id == captador.id
-                                } + captador
-                                ).sortedBy {
-                                it.identificadorLocal
-                            }
+                                } + captador)
+                                .sortedBy {
+                                    it.identificadorLocal
+                                }
 
                         mensajeExito =
                             "¡Captador registrado correctamente!\n\n" +
-                                    "Nombre: ${captador.nombre}\n" +
-                                    "Código: ${captador.identificadorLocal}\n\n" +
-                                    "Token copiado al portapapeles.\n" +
-                                    "Ya puedes entregarlo al captador."
+                                "Nombre: ${captador.nombre}\n" +
+                                "Código: ${captador.identificadorLocal}\n\n" +
+                                "Token copiado al portapapeles.\n" +
+                                "Ya puedes entregarlo al captador."
 
                         nombre = ""
                         identificador = ""
-
                     } catch (e: CancellationException) {
                         throw e
-
                     } catch (e: Exception) {
                         mensajeError =
                             if (captadorCreado != null) {
                                 "El captador fue creado en MariaDB, " +
-                                        "pero no se completó la generación " +
-                                        "o copia del token.\n\n" +
-                                        "No lo registres nuevamente.\n" +
-                                        "Puedes buscarlo en la lista y " +
-                                        "generar otra credencial.\n\n" +
-                                        "Detalle: ${e.message}"
+                                    "pero no se completó la generación " +
+                                    "o copia del token.\n\n" +
+                                    "No lo registres nuevamente.\n" +
+                                    "Puedes buscarlo en la lista y " +
+                                    "generar otra credencial.\n\n" +
+                                    "Detalle: ${e.message}"
                             } else {
-                                e.message
-                                    ?: "No se pudo registrar el captador."
+                                e.message ?: "No se pudo registrar el captador."
                             }
-
                     } finally {
                         claveAdmin = ""
                         registrando = false
                     }
                 }
             },
-            enabled = !registrando &&
+            enabled =
+                !registrando &&
                     !cargandoLista &&
                     nombre.isNotBlank() &&
                     identificador.isNotBlank() &&
                     claveAdmin.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             if (registrando) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
                 )
             } else {
                 Text("Registrar y generar token")
@@ -250,7 +211,7 @@ fun GestionCaptadoresScreen(
 
         Text(
             text = "Captadores registrados",
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
         )
 
         OutlinedButton(
@@ -261,86 +222,63 @@ fun GestionCaptadoresScreen(
 
                     try {
                         val respuesta =
-                            RetrofitClient.captadorAdminApi
-                                .listarCaptadores(
-                                    clave = claveAdmin
-                                )
+                            RetrofitClient.captadorAdminApi.listarCaptadores(clave = claveAdmin)
 
                         if (respuesta.isSuccessful) {
-                            captadores = respuesta.body()
-                                .orEmpty()
-                                .sortedBy {
+                            captadores =
+                                respuesta.body().orEmpty().sortedBy {
                                     it.identificadorLocal
                                 }
                         } else {
-                            errorLista = when (respuesta.code()) {
-                                403 -> "Clave administrativa incorrecta."
-                                else -> "Error HTTP ${respuesta.code()}"
-                            }
+                            errorLista =
+                                when (respuesta.code()) {
+                                    403 -> "Clave administrativa incorrecta."
+                                    else -> "Error HTTP ${respuesta.code()}"
+                                }
                         }
-
                     } catch (e: CancellationException) {
                         throw e
-
                     } catch (e: Exception) {
-                        errorLista = e.message
-                            ?: "No se pudieron cargar los captadores."
-
+                        errorLista = e.message ?: "No se pudieron cargar los captadores."
                     } finally {
                         cargandoLista = false
                     }
                 }
             },
-            enabled = !registrando &&
-                    !cargandoLista &&
-                    claveAdmin.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
+            enabled = !registrando && !cargandoLista && claveAdmin.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                if (cargandoLista)
-                    "Cargando captadores..."
-                else
-                    "Actualizar lista de captadores"
-            )
+            Text(if (cargandoLista) "Cargando captadores..." else "Actualizar lista de captadores")
         }
 
         errorLista?.let { error ->
             Text(
                 text = error,
-                color = MaterialTheme.colorScheme.error
+                color = MaterialTheme.colorScheme.error,
             )
         }
 
         captadores.forEach { captador ->
-
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-
                     Text(
                         text = captador.identificadorLocal,
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleLarge,
                     )
 
                     Text(
                         text = captador.nombre,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
 
                     Text(
-                        text = if (captador.activo)
-                            "Activo"
-                        else
-                            "Inactivo",
-                        color = if (captador.activo)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.error
+                        text = if (captador.activo) "Activo" else "Inactivo",
+                        color =
+                            if (captador.activo) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.error,
                     )
 
                     if (captador.activo) {
@@ -349,10 +287,8 @@ fun GestionCaptadoresScreen(
                             onClick = {
                                 captadorParaToken = captador
                             },
-                            enabled = !registrando &&
-                                    !cargandoLista &&
-                                    claveAdmin.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth()
+                            enabled = !registrando && !cargandoLista && claveAdmin.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Renovar y copiar credencial")
                         }
@@ -363,7 +299,7 @@ fun GestionCaptadoresScreen(
         OutlinedButton(
             onClick = onVolver,
             enabled = !registrando && !cargandoLista,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Volver")
         }
@@ -379,30 +315,25 @@ fun GestionCaptadoresScreen(
             title = {
                 Text("Renovar y copiar credencial")
             },
-
             text = {
                 Text(
                     "¿Deseas RENOVAR la credencial de " +
-                            "${captador.identificadorLocal}?\n\n" +
-                            "Captador: ${captador.nombre}\n\n" +
-                            "ATENCIÓN:\n" +
-                            "El token anterior dejará de funcionar " +
-                            "inmediatamente.\n\n" +
-                            "Antes de continuar, verifica en el celular " +
-                            "del captador que no tenga prospectos " +
-                            "pendientes de sincronización.\n\n" +
-                            "El dispositivo deberá vincularse " +
-                            "nuevamente con el token generado."
+                        "${captador.identificadorLocal}?\n\n" +
+                        "Captador: ${captador.nombre}\n\n" +
+                        "ATENCIÓN:\n" +
+                        "El token anterior dejará de funcionar " +
+                        "inmediatamente.\n\n" +
+                        "Antes de continuar, verifica en el celular " +
+                        "del captador que no tenga prospectos " +
+                        "pendientes de sincronización.\n\n" +
+                        "El dispositivo deberá vincularse " +
+                        "nuevamente con el token generado."
                 )
             },
-
             confirmButton = {
                 TextButton(
-                    enabled = !registrando &&
-                            claveAdmin.isNotBlank(),
-
+                    enabled = !registrando && claveAdmin.isNotBlank(),
                     onClick = {
-
                         captadorParaToken = null
                         mensajeError = null
                         mensajeExito = null
@@ -412,52 +343,42 @@ fun GestionCaptadoresScreen(
 
                             try {
                                 val respuesta =
-                                    RetrofitClient.captadorAdminApi
-                                        .renovarCredencial(
-                                            clave = claveAdmin,
-                                            captadorId = captador.id
-                                        )
-
+                                    RetrofitClient.captadorAdminApi.renovarCredencial(
+                                        clave = claveAdmin,
+                                        captadorId = captador.id,
+                                    )
 
                                 if (!respuesta.isSuccessful) {
                                     error(
                                         when (respuesta.code()) {
-                                            403 ->
-                                                "Clave administrativa incorrecta."
+                                            403 -> "Clave administrativa incorrecta."
 
-                                            else ->
-                                                "Error HTTP ${respuesta.code()}"
+                                            else -> "Error HTTP ${respuesta.code()}"
                                         }
                                     )
                                 }
 
-                                val tokenNuevo = respuesta.body()
-                                    ?.credencial
-                                    ?.takeIf { it.isNotBlank() }
-                                    ?: error(
-                                        "No se recibió la credencial."
-                                    )
-                                clipboard.setText(
-                                    AnnotatedString(tokenNuevo)
-                                )
+                                val tokenNuevo =
+                                    respuesta.body()?.credencial?.takeIf { it.isNotBlank() }
+                                        ?: error("No se recibió la credencial.")
+                                clipboard.setText(AnnotatedString(tokenNuevo))
                                 mensajeExito =
                                     "Nueva credencial generada.\n\n" +
-                                            "Captador: " +
-                                            "${captador.identificadorLocal}\n\n" +
-                                            "Token copiado al portapapeles.\n\n" +
-                                            "Ahora puedes entregarlo " +
-                                            "manualmente al captador."
+                                        "Captador: " +
+                                        "${captador.identificadorLocal}\n\n" +
+                                        "Token copiado al portapapeles.\n\n" +
+                                        "Ahora puedes entregarlo " +
+                                        "manualmente al captador."
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
-                                mensajeError = e.message
-                                    ?: "No se pudo generar el token."
+                                mensajeError = e.message ?: "No se pudo generar el token."
                             } finally {
                                 claveAdmin = ""
                                 registrando = false
                             }
                         }
-                    }
+                    },
                 ) {
                     Text("Confirmar renovación")
                 }
@@ -467,11 +388,11 @@ fun GestionCaptadoresScreen(
                     enabled = !registrando,
                     onClick = {
                         captadorParaToken = null
-                    }
+                    },
                 ) {
                     Text("Cancelar")
                 }
-            }
+            },
         )
     }
     mensajeExito?.let { mensaje ->
@@ -493,7 +414,7 @@ fun GestionCaptadoresScreen(
                 ) {
                     Text("Entendido")
                 }
-            }
+            },
         )
     }
     mensajeError?.let { mensaje ->
@@ -515,7 +436,7 @@ fun GestionCaptadoresScreen(
                 ) {
                     Text("Entendido")
                 }
-            }
+            },
         )
     }
 }

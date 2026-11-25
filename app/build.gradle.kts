@@ -17,8 +17,8 @@ android {
         applicationId = "cl.duoc.therionlabs"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.0"
+        versionCode = 4
+        versionName = "2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:mockwebserver:3.14.9")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -61,8 +62,6 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.5")
 
     implementation("androidx.navigation:navigation-compose:2.9.6")
-
-
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

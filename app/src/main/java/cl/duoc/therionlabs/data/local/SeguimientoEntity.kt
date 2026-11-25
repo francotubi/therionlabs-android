@@ -1,9 +1,11 @@
 package cl.duoc.therionlabs.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 @Entity(
     tableName = "seguimientos",
@@ -22,10 +24,16 @@ import androidx.room.PrimaryKey
                 onDelete = ForeignKey.RESTRICT,
             ),
         ],
-    indices = [Index("prospectoId"), Index("administrativoId")],
+    indices =
+        [
+            Index("prospectoId"),
+            Index("administrativoId"),
+            Index(value = ["identificador"], unique = true),
+        ],
 )
 data class SeguimientoEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(defaultValue = "''") val identificador: String = UUID.randomUUID().toString(),
     val prospectoId: Int,
     val administrativoId: String,
     val administrativoNombre: String,

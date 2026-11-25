@@ -8,39 +8,33 @@ import java.util.Locale
 
 class ProspectoRepository(
     private val db: AppDatabase,
-    private val tokenStore: cl.duoc.therionlabs.network.DispositivoTokenStore? = null
+    private val tokenStore: cl.duoc.therionlabs.network.DispositivoTokenStore? = null,
 ) {
     private val dao = db.prospectoDao()
 
-    private fun obtenerIdentidadCaptador(
-        usuarioId: String
-    ): Pair<String, String>? {
+    private fun obtenerIdentidadCaptador(usuarioId: String): Pair<String, String>? {
 
         val store = tokenStore ?: return null
 
-        val captadorId = store.obtenerCaptadorId(usuarioId)
-            ?: return null
+        val captadorId = store.obtenerCaptadorId(usuarioId) ?: return null
 
-        val codigoCaptador = store.obtenerCodigoCaptador(usuarioId)
-            ?: return null
+        val codigoCaptador = store.obtenerCodigoCaptador(usuarioId) ?: return null
 
         return captadorId to codigoCaptador
     }
 
     fun registros() = dao.obtenerProspectos()
 
-    suspend fun obtenerProspectosParaExcel(
-        usuario: SesionUsuario
-    ): List<ProspectoEntity> = db.withTransaction {
+    suspend fun obtenerProspectosParaExcel(usuario: SesionUsuario): List<ProspectoEntity> =
+        db.withTransaction {
+            val usuarioActual = db.operacionDao().usuarioPorId(usuario.id)
 
-        val usuarioActual = db.operacionDao().usuarioPorId(usuario.id)
+            require(usuarioActual?.rol == Roles.ADMINISTRATIVO) {
+                "Solo los administrativos pueden exportar prospectos."
+            }
 
-        require(usuarioActual?.rol == Roles.ADMINISTRATIVO) {
-            "Solo los administrativos pueden exportar prospectos."
+            dao.obtenerParaExportacion()
         }
-
-        dao.obtenerParaExportacion()
-    }
 
     suspend fun guardarProspecto(usuario: SesionUsuario, prospecto: ProspectoEntity): Long =
         db.withTransaction {
@@ -83,14 +77,15 @@ class ProspectoRepository(
 
             val identidad = obtenerIdentidadCaptador(usuario.id)
 
-            val codigoCaptador = if (tokenStore != null) {
-                requireNotNull(identidad?.second) {
-                    "Primero debes vincular tu dispositivo " +
+            val codigoCaptador =
+                if (tokenStore != null) {
+                    requireNotNull(identidad?.second) {
+                        "Primero debes vincular tu dispositivo " +
                             "con el token entregado por Administración."
+                    }
+                } else {
+                    responsable.id
                 }
-            } else {
-                responsable.id
-            }
 
             dao.insertarProspecto(
                 prospecto.copy(
@@ -100,13 +95,55 @@ class ProspectoRepository(
                     email = email,
                 )
             )
-
         }
 
-    suspend fun borrarProspecto(usuario: SesionUsuario, id: Int) = db.withTransaction {
-        require(db.operacionDao().usuarioPorId(usuario.id)?.rol == Roles.ADMINISTRATIVO) {
-            "Solo administración puede eliminar registros."
+    suspend fun editarProspecto(usuario: SesionUsuario, datos: ProspectoEntity) {
+        val anterior = requireNotNull(dao.obtenerPorId(datos.id))
+        if (usuario.rol == Roles.ADMINISTRATIVO) {
+            AdministracionRepository(db).editar(usuario, datos)
+        } else {
+            require(
+                obtenerIdentidadCaptador(usuario.id)?.second == anterior.captadorId &&
+                    anterior.sincronizado != 1
+            ) {
+                "Solo puedes corregir tus fichas pendientes o rechazadas."
+            }
+            db.withTransaction {
+                val repetidos =
+                    dao.obtenerParaExportacion().filter {
+                        it.id != datos.id && it.eventoId == datos.eventoId
+                    }
+                val rut = datos.rut.filter { it.isLetterOrDigit() }.uppercase(Locale.ROOT)
+                require(
+                    repetidos.none {
+                        it.rut.filter { c -> c.isLetterOrDigit() }.uppercase(Locale.ROOT) == rut ||
+                            it.email.equals(datos.email.trim(), true)
+                    }
+                ) {
+                    "Ya existe ese RUT o correo en el evento."
+                }
+                dao.actualizar(
+                    datos.copy(
+                        identificador = anterior.identificador,
+                        captadorId = anterior.captadorId,
+                        captador = anterior.captador,
+                        eventoId = anterior.eventoId,
+                        sincronizado = 0,
+                        motivoRechazo = "",
+                    )
+                )
+            }
         }
-        dao.borrarProspecto(id)
+    }
+
+    suspend fun borrarProspecto(usuario: SesionUsuario, id: Int) {
+        val datos = requireNotNull(dao.obtenerPorId(id))
+        require(datos.sincronizado != 0) { "Espera a que termine el envío antes de eliminar esta ficha." }
+        if (datos.sincronizado == 1) AdministracionRepository(db).eliminar(usuario, id)
+        else
+            db.withTransaction {
+                require(db.operacionDao().usuarioPorId(usuario.id)?.rol == Roles.ADMINISTRATIVO)
+                dao.borrarProspecto(id)
+            }
     }
 }

@@ -1,54 +1,43 @@
 package cl.duoc.therionlabs.worker
 
 import android.content.Context
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
+import androidx.work.*
+import java.util.concurrent.TimeUnit
 
 object SyncScheduler {
+    private fun restricciones() =
+        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
-    private const val TRABAJO_SYNC =
-        "therionlabs_sync_prospectos"
-
-    // Sincronización automática
-    fun solicitarSincronizacion(context: Context) {
-
-        val restricciones = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val solicitud =
-            OneTimeWorkRequestBuilder<ProspectoSyncWorker>()
-                .setConstraints(restricciones)
-                .build()
-
-        WorkManager.getInstance(context.applicationContext)
-            .enqueueUniqueWork(
-                TRABAJO_SYNC,
-                ExistingWorkPolicy.KEEP,
-                solicitud
+    fun programar(contexto: Context) {
+        WorkManager.getInstance(contexto)
+            .enqueueUniquePeriodicWork(
+                "sincronizacion_periodica",
+                ExistingPeriodicWorkPolicy.KEEP,
+                PeriodicWorkRequestBuilder<ProspectoSyncWorker>(15, TimeUnit.MINUTES)
+                    .setConstraints(restricciones())
+                    .build(),
             )
     }
 
-    // Sincronización manual
-    fun forzarSincronizacion(context: Context) {
-
-        val restricciones = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val solicitud =
-            OneTimeWorkRequestBuilder<ProspectoSyncWorker>()
-                .setConstraints(restricciones)
-                .build()
-
-        WorkManager.getInstance(context.applicationContext)
+    fun solicitarSincronizacion(contexto: Context) {
+        WorkManager.getInstance(contexto)
             .enqueueUniqueWork(
-                TRABAJO_SYNC,
+                "sincronizacion_capturas",
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                OneTimeWorkRequestBuilder<ProspectoSyncWorker>()
+                    .setConstraints(restricciones())
+                    .build(),
+            )
+    }
+
+    fun forzarSincronizacion(contexto: Context) {
+        WorkManager.getInstance(contexto)
+            .enqueueUniqueWork(
+                "sincronizacion_capturas",
                 ExistingWorkPolicy.REPLACE,
-                solicitud
+                OneTimeWorkRequestBuilder<ProspectoSyncWorker>()
+                    .setConstraints(restricciones())
+                    .build(),
             )
     }
 }

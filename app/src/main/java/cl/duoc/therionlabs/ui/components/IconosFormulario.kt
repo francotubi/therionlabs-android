@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-// Íconos vectoriales propios. No requieren imágenes ni dependencias adicionales.
 object IconosFormulario {
     val Persona =
         icono("Persona") {

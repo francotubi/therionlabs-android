@@ -16,7 +16,6 @@ object ValidacionesProspecto {
     private val formatoFecha =
         DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT)
 
-    // Valida el formato del correo; no comprueba que exista la cuenta.
     private val formatoCorreo =
         Regex(
             """[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"""
@@ -117,7 +116,6 @@ object ValidacionesProspecto {
         var suma = 0
         var multiplicador = 2
 
-        // Se recorre el cuerpo de derecha a izquierda con factores del 2 al 7.
         for (digito in cuerpo.reversed()) {
             suma += digito.digitToInt() * multiplicador
             multiplicador = if (multiplicador == 7) 2 else multiplicador + 1

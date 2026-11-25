@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import cl.duoc.therionlabs.network.ConfiguracionConexion
 import cl.duoc.therionlabs.network.ExcelDownloader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -17,7 +18,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ExportarExcelBoton(
     eventoId: String,
-    ocupado: Boolean
+    ocupado: Boolean,
 ) {
     val contexto = LocalContext.current
     val alcance = rememberCoroutineScope()
@@ -27,68 +28,68 @@ fun ExportarExcelBoton(
     }
 
     var clave by remember {
-        mutableStateOf("")
+        mutableStateOf(ConfiguracionConexion.claveAdministrativa)
     }
 
     var descargando by remember {
         mutableStateOf(false)
     }
 
-    val selectorArchivo = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    ) { uri ->
+    val selectorArchivo =
+        rememberLauncherForActivityResult(
+            contract =
+                ActivityResultContracts.CreateDocument(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+        ) { uri ->
+            if (uri == null) {
+                clave = ""
+            } else {
+                descargando = true
 
-        if (uri == null) {
-            clave = ""
-        } else {
-            descargando = true
+                alcance.launch {
+                    try {
+                        ExcelDownloader.descargarYGuardar(
+                            contexto = contexto,
+                            eventoId = eventoId,
+                            claveAdministrativa = clave,
+                            destino = uri,
+                        )
 
-            alcance.launch {
-                try {
-                    ExcelDownloader.descargarYGuardar(
-                        contexto = contexto,
-                        eventoId = eventoId,
-                        claveAdministrativa = clave,
-                        destino = uri
-                    )
-
-                    Toast.makeText(
-                        contexto,
-                        "Excel descargado correctamente",
-                        Toast.LENGTH_LONG
-                    ).show()
-
-                } catch (e: CancellationException) {
-                    throw e
-
-                } catch (e: Exception) {
-                    Toast.makeText(
-                        contexto,
-                        e.message ?: "Error al descargar Excel",
-                        Toast.LENGTH_LONG
-                    ).show()
-
-                } finally {
-                    clave = ""
-                    descargando = false
+                        Toast.makeText(
+                                contexto,
+                                "Excel descargado correctamente",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                                contexto,
+                                e.message ?: "Error al descargar Excel",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
+                    } finally {
+                        clave = ""
+                        descargando = false
+                    }
                 }
             }
         }
-    }
 
     Button(
         onClick = {
             mostrarDialogo = true
         },
         enabled = !ocupado && !descargando,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         if (descargando) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp
+                strokeWidth = 2.dp,
             )
         } else {
             Text("Exportar Excel")
@@ -105,12 +106,8 @@ fun ExportarExcelBoton(
                 Text("Exportar reporte Excel")
             },
             text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        "Ingresa tu clave administrativa para descargar el reporte."
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Ingresa tu clave administrativa para descargar el reporte.")
 
                     OutlinedTextField(
                         value = clave,
@@ -118,10 +115,9 @@ fun ExportarExcelBoton(
                         label = {
                             Text("Clave administrativa")
                         },
-                        visualTransformation =
-                            PasswordVisualTransformation(),
+                        visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             },
@@ -131,10 +127,8 @@ fun ExportarExcelBoton(
                     onClick = {
                         mostrarDialogo = false
 
-                        selectorArchivo.launch(
-                            "TherionLabs_Evento_${eventoId}.xlsx"
-                        )
-                    }
+                        selectorArchivo.launch("TherionLabs_Evento_${eventoId}.xlsx")
+                    },
                 ) {
                     Text("Descargar")
                 }
@@ -148,7 +142,7 @@ fun ExportarExcelBoton(
                 ) {
                     Text("Cancelar")
                 }
-            }
+            },
         )
     }
 }

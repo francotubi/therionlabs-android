@@ -4,10 +4,24 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OperacionDAO {
+    @Upsert suspend fun actualizarEventos(datos: List<EventoEntity>)
+
+    @Upsert suspend fun actualizarGestion(datos: SeguimientoEntity): Long
+
+    @Query("SELECT * FROM seguimientos WHERE identificador=:identificador LIMIT 1")
+    suspend fun gestionPorIdentificador(identificador: String): SeguimientoEntity?
+
+    @Query("SELECT * FROM seguimientos WHERE estadoEnvio='PENDIENTE' ORDER BY id")
+    suspend fun gestionesPendientes(): List<SeguimientoEntity>
+
+    @Query("UPDATE seguimientos SET estadoEnvio='SINCRONIZADO' WHERE identificador=:identificador")
+    suspend fun confirmarGestion(identificador: String)
+
     @Query("SELECT * FROM usuarios WHERE usuario = :nombre LIMIT 1")
     suspend fun usuario(nombre: String): UsuarioEntity?
 
@@ -22,7 +36,7 @@ interface OperacionDAO {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertarEventos(eventos: List<EventoEntity>)
 
-    @Query("SELECT * FROM eventos ORDER BY fecha ASC, nombre ASC")
+    @Query("SELECT * FROM eventos WHERE eliminado=0 ORDER BY fecha ASC, nombre ASC")
     fun eventos(): Flow<List<EventoEntity>>
 
     @Query("SELECT * FROM eventos") suspend fun listaEventos(): List<EventoEntity>

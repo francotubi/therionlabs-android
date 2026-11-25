@@ -13,7 +13,6 @@ interface ExcelApi {
     @GET("api/admin/prospectos/{eventoId}/excel")
     suspend fun descargarExcel(
         @Path("eventoId") eventoId: String,
-        @Header("X-Admin-Key") claveAdministrativa: String
+        @Header("X-Admin-Key") claveAdministrativa: String,
     ): Response<ResponseBody>
-
 }

@@ -1,5 +1,6 @@
 package cl.duoc.therionlabs.data.viewmodel
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,7 +20,9 @@ import cl.duoc.therionlabs.data.model.ErroresFormularioProspectos
 import cl.duoc.therionlabs.data.model.FormularioProspectos
 import cl.duoc.therionlabs.data.repository.ProspectoRepository
 import cl.duoc.therionlabs.domain.*
+import cl.duoc.therionlabs.network.DispositivoTokenStore
 import cl.duoc.therionlabs.util.ValidacionesProspecto
+import cl.duoc.therionlabs.worker.SyncScheduler
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -27,10 +30,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import android.app.Application
-import cl.duoc.therionlabs.worker.SyncScheduler
-
-import cl.duoc.therionlabs.network.DispositivoTokenStore
 
 data class EstadoHistorial(
     val registros: List<ProspectoEntity> = emptyList(),
@@ -48,12 +47,13 @@ class ProspectoViewModel(
         val usuario = usuarioActivo.value
 
         codigoCaptadorActivo.value =
-            usuario?.takeIf { PermisosPerfil.puedeCapturar(it) }
+            usuario
+                ?.takeIf { PermisosPerfil.puedeCapturar(it) }
                 ?.let { tokenStore.obtenerCodigoCaptador(it.id) }
     }
 
     var formulario by
-    mutableStateOf(guardado.get<FormularioProspectos>("formulario") ?: FormularioProspectos())
+        mutableStateOf(guardado.get<FormularioProspectos>("formulario") ?: FormularioProspectos())
         private set
 
     var erroresFormulario by mutableStateOf(ErroresFormularioProspectos())
@@ -83,47 +83,47 @@ class ProspectoViewModel(
 
     private val tokenStore = DispositivoTokenStore(aplicacion)
 
-    private val codigoCaptadorActivo =
-        MutableStateFlow<String?>(null)
+    private val codigoCaptadorActivo = MutableStateFlow<String?>(null)
 
     val estadoHistorial: Flow<EstadoHistorial> =
         combine(
-            repositorio.registros(),
-            usuarioActivo,
-            codigoCaptadorActivo
-        ) { registros, usuario, codigoCaptador ->
-            EstadoHistorial(
-                registros = registros.filter { prospecto ->
-                    when {
-                        usuario == null -> false
-                        PermisosPerfil.puedeAdministrar(usuario) -> true
-                        codigoCaptador.isNullOrBlank() -> false
-                        else -> prospecto.captadorId == codigoCaptador
-                    }
-                },
-                cargando = false
-            )
-        }
+                repositorio.registros(),
+                usuarioActivo,
+                codigoCaptadorActivo,
+            ) { registros, usuario, codigoCaptador ->
+                EstadoHistorial(
+                    registros =
+                        registros.filter { prospecto ->
+                            when {
+                                usuario == null -> false
+                                PermisosPerfil.puedeAdministrar(usuario) -> true
+                                codigoCaptador.isNullOrBlank() -> false
+                                else -> prospecto.captadorId == codigoCaptador
+                            }
+                        },
+                    cargando = false,
+                )
+            }
             .catch { error ->
                 if (error is CancellationException) throw error
                 Log.e(TAG, "Error al consultar Room", error)
                 emit(
                     EstadoHistorial(
                         cargando = false,
-                        error = "No se pudieron cargar los registros."
+                        error = "No se pudieron cargar los registros.",
                     )
                 )
             }
 
     fun establecerUsuario(usuario: SesionUsuario?) {
         if (usuarioActivo.value?.id != usuario?.id) {
-            // Un borrador restaurado solo pertenece a la misma cuenta.
             val responsable = guardado.get<String>("responsable")
             if (responsable != usuario?.id) descartarFormulario()
             usuarioActivo.value = usuario
 
             codigoCaptadorActivo.value =
-                usuario?.takeIf { PermisosPerfil.puedeCapturar(it) }
+                usuario
+                    ?.takeIf { PermisosPerfil.puedeCapturar(it) }
                     ?.let { tokenStore.obtenerCodigoCaptador(it.id) }
 
             guardado["responsable"] = usuario?.id
@@ -149,7 +149,7 @@ class ProspectoViewModel(
 
     fun tieneBorrador(): Boolean =
         formulario !=
-                (guardado.get<FormularioProspectos>("formularioInicial") ?: FormularioProspectos())
+            (guardado.get<FormularioProspectos>("formularioInicial") ?: FormularioProspectos())
 
     fun descartarFormulario() {
         formulario = FormularioProspectos()
@@ -164,11 +164,10 @@ class ProspectoViewModel(
     fun actualizarFormulario(nuevoFormulario: FormularioProspectos) {
         if (
             guardando ||
-            registroGuardadoId != null ||
-            !PermisosPerfil.puedeCapturar(usuarioActivo.value)
+                registroGuardadoId != null ||
+                !PermisosPerfil.puedeCapturar(usuarioActivo.value)
         )
             return
-        // Las preferencias deben corresponder a la sede seleccionada.
         formulario =
             if (nuevoFormulario.region != formulario.region) {
                 nuevoFormulario.copy(
@@ -219,7 +218,6 @@ class ProspectoViewModel(
 
     private fun actualizarErrores(): ErroresFormularioProspectos {
         val errores = ValidacionesProspecto.validar(formulario)
-        // Los formatos se revisan al escribir. Los vacíos se muestran al continuar.
         erroresFormulario =
             errores.copy(
                 rut =
@@ -258,7 +256,6 @@ class ProspectoViewModel(
     }
 
     fun guardarProspecto() {
-        // Evita dos guardados mientras se procesa el mismo clic.
         if (guardando || registroGuardadoId != null) return
         errorGuardado = null
         mostrarErroresDatosPersonales = true
@@ -342,11 +339,9 @@ class ProspectoViewModel(
                     Log.e(
                         TAG,
                         "Prospecto guardado, pero no se pudo programar la sincronización",
-                        error
+                        error,
                     )
                 }
-
-                // Limpiar el formulario después de guardar
                 descartarFormulario()
                 erroresFormulario = ErroresFormularioProspectos()
                 mostrarErroresDatosPersonales = false
@@ -380,17 +375,17 @@ class ProspectoViewModel(
             initializer {
                 val aplicacion = checkNotNull(this[APPLICATION_KEY])
                 val baseDeDatos = AppDatabase.getDatabase(aplicacion)
-                val repositorio = ProspectoRepository(
-                    db = baseDeDatos,
-                    tokenStore = DispositivoTokenStore(aplicacion)
-                )
+                val repositorio =
+                    ProspectoRepository(
+                        db = baseDeDatos,
+                        tokenStore = DispositivoTokenStore(aplicacion),
+                    )
 
                 ProspectoViewModel(
                     repositorio,
                     createSavedStateHandle(),
-                    aplicacion
+                    aplicacion,
                 )
-
             }
         }
     }
@@ -398,9 +393,35 @@ class ProspectoViewModel(
     var errorBorrado by mutableStateOf<String?>(null)
         private set
 
+    var procesando by mutableStateOf(false)
+        private set
+
+    fun editarProspecto(datos: ProspectoEntity, terminar: () -> Unit) {
+        val usuario = usuarioActivo.value ?: return
+        if (procesando) return
+        procesando = true
+        viewModelScope.launch {
+            try {
+                repositorio.editarProspecto(usuario, datos)
+                SyncScheduler.solicitarSincronizacion(aplicacion)
+                terminar()
+            } catch (cancelacion: CancellationException) {
+                throw cancelacion
+            } catch (error: Exception) {
+                errorBorrado =
+                    error.message
+                        ?: "No se pudo guardar la ficha. Si no hay conexión, conserva tus cambios y vuelve a intentar."
+            } finally {
+                procesando = false
+            }
+        }
+    }
+
     fun borrarProspecto(id: Int) {
         val usuario = usuarioActivo.value ?: return
         if (!PermisosPerfil.puedeAdministrar(usuario)) return
+        if (procesando) return
+        procesando = true
         errorBorrado = null
 
         viewModelScope.launch {
@@ -411,7 +432,10 @@ class ProspectoViewModel(
             } catch (error: Exception) {
                 Log.e(TAG, "Error al borrar el prospecto", error)
                 errorBorrado =
-                    "No se pudo borrar. Los prospectos con gestiones conservan su historial y no se pueden eliminar."
+                    error.message
+                        ?: "No se pudo eliminar la ficha. Revisa la conexión y vuelve a intentar."
+            } finally {
+                procesando = false
             }
         }
     }

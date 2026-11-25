@@ -6,7 +6,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Fuentes del dispositivo: el diseño funciona sin descargar tipografías.
 val Typography =
     Typography(
         displaySmall =

@@ -163,6 +163,11 @@ fun DialogoSeguimiento(
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             Text(
+                                if (gestion.estadoEnvio == "SINCRONIZADO") "Guardada en el servidor"
+                                else "Pendiente de envío al servidor",
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Text(
                                 gestion.administrativoNombre,
                                 style = MaterialTheme.typography.bodySmall,
                             )

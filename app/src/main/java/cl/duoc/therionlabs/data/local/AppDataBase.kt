@@ -16,7 +16,7 @@ import java.util.UUID
             EventoEntity::class,
             SeguimientoEntity::class,
         ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -53,8 +53,6 @@ abstract class AppDatabase : RoomDatabase() {
                     db.execSQL(
                         "ALTER TABLE prospectos ADD COLUMN identificador TEXT NOT NULL DEFAULT ''"
                     )
-
-                    // Los registros que ya existían reciben su propio identificador.
                     val idsExistentes = mutableListOf<Int>()
                     db.query("SELECT id FROM prospectos WHERE identificador = ''").use { cursor ->
                         val indiceId = cursor.getColumnIndexOrThrow("id")
@@ -133,6 +131,33 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        val MIGRATION_5_6 =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "ALTER TABLE eventos ADD COLUMN eliminado INTEGER NOT NULL DEFAULT 0"
+                    )
+                    db.execSQL(
+                        "ALTER TABLE prospectos ADD COLUMN eliminado INTEGER NOT NULL DEFAULT 0"
+                    )
+                    db.execSQL(
+                        "ALTER TABLE prospectos ADD COLUMN motivoRechazo TEXT NOT NULL DEFAULT ''"
+                    )
+                    db.execSQL(
+                        "ALTER TABLE seguimientos ADD COLUMN identificador TEXT NOT NULL DEFAULT ''"
+                    )
+                    db.query("SELECT id FROM seguimientos").use { cursor ->
+                        while (cursor.moveToNext()) db.execSQL(
+                            "UPDATE seguimientos SET identificador = ? WHERE id = ?",
+                            arrayOf<Any>(java.util.UUID.randomUUID().toString(), cursor.getInt(0)),
+                        )
+                    }
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX index_seguimientos_identificador ON seguimientos(identificador)"
+                    )
+                }
+            }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE
                 ?: synchronized(this) {
@@ -147,6 +172,7 @@ abstract class AppDatabase : RoomDatabase() {
                                 MIGRATION_2_3,
                                 MIGRATION_3_4,
                                 MIGRATION_4_5,
+                                MIGRATION_5_6,
                             )
                             .build()
                             .also { INSTANCE = it }
