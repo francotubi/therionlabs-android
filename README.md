@@ -23,14 +23,38 @@ Diego Barra, Franco Tubi, Maicol García y Benjamín Osorio.
 
 ## Ejecución
 
-1. Abrir este proyecto en Android Studio con JDK 21 y Android SDK 36, revisión menor 1.
-2. Para usar AWS no es necesario ejecutar el backend en el computador. Para una instalación local, ejecutar [therionlabs-backend](https://github.com/francotubi/therionlabs-backend) con MySQL y configurar `THERIONLABS_DB_URL`, `THERIONLABS_DB_USER`, `THERIONLABS_DB_PASSWORD` y `PORT` (8081 por defecto).
-3. En la primera ejecución del backend, definir `THERIONLABS_ADMIN_USER` y `THERIONLABS_ADMIN_PASSWORD` para crear la cuenta administrativa inicial. No hay una contraseña de producción incluida en el código. Cambiar esas variables después no altera una cuenta ya creada.
-4. Ejecutar la aplicación. La dirección inicial es `https://184.192.154.68/`, correspondiente al backend desplegado en EC2 con una Elastic IP y certificado válido. Para pruebas locales se utiliza la compilación debug y se configura `http://10.0.2.2:8081/` antes de descargar datos. Desde el inicio de sesión, Configurar servidor permite guardar otra dirección antes de descargar eventos o capturar fichas. Para un teléfono físico se necesita una dirección accesible del backend. La compilación release solo admite conexiones HTTPS.
-5. Ingresar con la cuenta administrativa del servidor. En Cuentas, crear el usuario, contraseña inicial, nombre, perfil y código del captador. No se admiten códigos duplicados entre cuentas.
-6. El captador ingresa por primera vez con internet en su teléfono. El código y la credencial para sincronizar se guardan automáticamente. Descargar los eventos antes de trabajar sin conexión.
+### APK conectada a AWS
 
-No se permite mezclar servidores en una instalación que ya tiene eventos o registros locales. Para probar otro servidor se utiliza una instalación independiente; los datos de la anterior no se borran automáticamente.
+La versión de entrega es [TherionLabs 2.3](https://github.com/francotubi/therionlabs-android/raw/refs/heads/main/entrega/TherionLabs-2.3.apk). El archivo también está disponible en [entrega/TherionLabs-2.3.apk](entrega/TherionLabs-2.3.apk).
+
+La aplicación se conecta por defecto a `https://184.192.154.68/`. El backend funciona en una instancia EC2 con MySQL y Nginx. El uso de la APK no requiere ejecutar el servidor en el computador.
+
+El primer inicio de sesión necesita internet y una cuenta registrada en el servidor. Desde Cuentas, administración crea los usuarios administrativos o captadores. El perfil y el código de captador se reciben automáticamente al ingresar. Los eventos se descargan antes de trabajar sin conexión.
+
+### Proyecto en Android Studio
+
+El proyecto utiliza JDK 21 y Android SDK 36, revisión menor 1. La ejecución del módulo `app` en el emulador usa la dirección de AWS por defecto.
+
+La compilación debug permite conexiones HTTP para las pruebas locales. La versión release utiliza HTTPS.
+
+### Backend local
+
+El [backend Spring Boot](https://github.com/francotubi/therionlabs-backend) utiliza MySQL y recibe su configuración mediante variables de entorno.
+
+| Variable | Uso |
+| --- | --- |
+| `THERIONLABS_DB_URL` | Dirección JDBC de la base de datos MySQL |
+| `THERIONLABS_DB_USER` | Usuario de la base de datos |
+| `THERIONLABS_DB_PASSWORD` | Contraseña de la base de datos |
+| `PORT` | Puerto del servicio; 8081 por defecto |
+| `THERIONLABS_ADMIN_USER` | Usuario administrativo inicial |
+| `THERIONLABS_ADMIN_PASSWORD` | Contraseña administrativa inicial |
+
+La cuenta administrativa inicial se crea en la primera ejecución. Cambiar esas variables después no modifica una cuenta existente.
+
+En el emulador, el backend del computador está disponible en `http://10.0.2.2:8081/`. La dirección se guarda desde Configurar servidor, en la pantalla de inicio de sesión, antes de descargar eventos o registrar prospectos. Un teléfono físico utiliza una dirección del backend accesible desde su red.
+
+La aplicación conserva la dirección elegida y evita cambiar de servidor si ya existen eventos o registros locales, para no mezclar datos de instalaciones distintas.
 
 ## Sesiones y trabajo sin conexión
 
@@ -57,7 +81,7 @@ El perfil administrativo puede consultar datos locales y registrar gestiones pen
 | PUT / DELETE | `/api/admin/prospectos/{id}` | Editar o dar de baja una ficha |
 | GET / POST | `/api/admin/prospectos/{id}/seguimientos` | Consultar y guardar gestiones |
 | GET | `/api/admin/estadisticas/prospectos-por-evento` | Consultar totales |
-| GET | `/api/admin/prospectos/{id}/excel` | Descargar el reporte Excel |
+| GET | `/api/admin/prospectos/{eventoId}/excel` | Descargar el reporte Excel |
 
 Las operaciones administrativas reciben `Authorization: Bearer ...`. La participación y el envío de prospectos reciben `X-Device-Token`, gestionado automáticamente por la aplicación. El servidor determina el rol de la cuenta y verifica la identidad del captador.
 
@@ -69,18 +93,22 @@ Se consume `GET https://api.open-meteo.com/v1/forecast` con coordenadas de Valpa
 
 ## Persistencia y arquitectura
 
-Interfaz con Jetpack Compose y navegación por perfiles; ViewModel para el estado, Repository para acceso a datos, Retrofit para la red y Room 6 para usuarios validados, eventos, prospectos y seguimientos. La migración conserva los datos anteriores. La nueva autenticación conserva los identificadores locales de usuarios existentes para no romper las relaciones con el historial.
+La interfaz está desarrollada con Jetpack Compose y navegación por perfiles. Los ViewModel mantienen el estado de las pantallas, los Repository gestionan los datos y Retrofit realiza las llamadas HTTP. Room 2.8.5 almacena usuarios validados, eventos, prospectos y seguimientos. El esquema de la base de datos está en la versión 6.
+
+La migración conserva los datos anteriores. La autenticación mantiene los identificadores locales de usuarios existentes para conservar las relaciones con su historial.
 
 Las fichas usan 0 pendiente, 1 sincronizada y 2 rechazada. Cada captura y seguimiento mantiene su UUID. Las actualizaciones usan inserción o actualización sin reemplazar las filas relacionadas. La caché no sobrescribe una captura pendiente con una copia remota.
 
 ## Pruebas
+
+Se ejecutaron **66 pruebas unitarias sin fallos**, con una **cobertura de líneas del 87,62 %** en las capas de lógica medidas. También se ejecutaron **6 pruebas instrumentadas sin fallos** en el emulador.
 
 ```powershell
 .\gradlew.bat verificarCobertura lintDebug assembleDebug
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-Las pruebas unitarias se encuentran en `app/src/test/` y usan JUnit, MockK, MockWebServer y corutinas de prueba. Se comprueban permisos, duplicados, acceso conectado y sin conexión, cierres de eventos, confirmación de UUID, rechazos, reintentos, formularios y estados de los tres ViewModel. Las bases de datos, preferencias y servicios remotos se simulan; la suite no necesita acceder a AWS. `AccesoViewModel` admite recibir el repositorio en su constructor para aislarlo durante las pruebas y conserva el repositorio habitual por defecto.
+Las pruebas unitarias se encuentran en `app/src/test/` y usan JUnit, MockK, MockWebServer y corutinas de prueba. Se comprueban permisos, duplicados, acceso conectado y sin conexión, cierres de eventos, confirmación de UUID, rechazos, reintentos, formularios y estados de los tres ViewModel. Las bases de datos, preferencias y servicios remotos se simulan; la suite no necesita acceder a AWS.
 
 La tarea `verificarCobertura` ejecuta las pruebas, genera el informe de JaCoCo y exige al menos un 80 % de cobertura de líneas. Se miden completas las capas `domain`, `util`, `data/repository`, `data/viewmodel` y `network`, incluidas las clases de esas capas que usan servicios Android. La interfaz Compose, los modelos de persistencia, el código generado por Room y la programación de WorkManager quedan fuera de esta medición. El porcentaje corresponde a esas capas, no al total del proyecto.
 
@@ -96,9 +124,9 @@ La versión 2.3 se genera como release y se firma con la llave privada `firma/th
 .\gradlew.bat assembleRelease
 ```
 
-El APK firmado se entrega en `entrega/TherionLabs-2.3.apk`. El archivo `.jks` y sus credenciales deben conservarse y entregarse al docente por el canal privado correspondiente; no se publican en el repositorio. Todas las actualizaciones de esta versión deben utilizar la misma llave.
+El [APK firmado de la versión 2.3](entrega/TherionLabs-2.3.apk) está disponible en la carpeta de entrega. La llave `.jks` y sus credenciales forman parte del respaldo privado del equipo. Las actualizaciones de la aplicación utilizan la misma llave de firma.
 
-La instalación debe realizarse en un teléfono sin otra compilación de TherionLabs firmada con una llave diferente. Los datos de prueba locales no se trasladan automáticamente a la base nueva de AWS. No se borran datos anteriores desde la aplicación.
+Las compilaciones firmadas con llaves diferentes no pueden instalarse como actualización de una misma aplicación. Los datos de prueba del servidor local y los datos de AWS pertenecen a instalaciones independientes.
 
 El backend se ejecuta como servicio en Ubuntu de EC2, con MySQL accesible dentro del servidor y Nginx en el puerto 443. El certificado de la IP tiene renovación automática configurada con Certbot. La instancia debe estar encendida y el laboratorio activo para que responda. La dirección permanece fija mientras se conserve la Elastic IP.
 
@@ -115,5 +143,3 @@ Configuración de firma en Android Studio con la llave `therionlabs-release.jks`
 Archivo APK firmado disponible en la carpeta de entrega.
 
 ![APK TherionLabs 2.3 en la carpeta de entrega](entrega/capturas/APK-firmado.png)
-
-Queda por incorporar la evidencia del tablero de trabajo. La prueba de renovación del certificado HTTPS se mantiene pendiente de comprobación.
