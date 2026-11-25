@@ -10,8 +10,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AccesoViewModel(app: Application) : AndroidViewModel(app) {
-    private val repo = AccesoRepository(app)
+class AccesoViewModel
+@JvmOverloads
+constructor(
+    app: Application,
+    private val repo: AccesoRepository = AccesoRepository(app),
+) : AndroidViewModel(app) {
     private val _sesion = MutableStateFlow<SesionUsuario?>(null)
     val sesion = _sesion.asStateFlow()
     private val _ocupado = MutableStateFlow(false)

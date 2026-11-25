@@ -4,12 +4,14 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    jacoco
 }
 
 val archivoFirma = rootProject.file("keystore.properties")
-val propiedadesFirma = Properties().apply {
-    if (archivoFirma.exists()) archivoFirma.inputStream().use { load(it) }
-}
+val propiedadesFirma =
+    Properties().apply {
+        if (archivoFirma.exists()) archivoFirma.inputStream().use { load(it) }
+    }
 
 android {
     namespace = "cl.duoc.therionlabs"
@@ -73,6 +75,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
+    testImplementation("io.mockk:mockk:1.14.6")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:3.14.9")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
@@ -94,3 +98,54 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 }
+
+jacoco {
+    toolVersion = "0.8.15"
+}
+
+tasks.withType<Test>().configureEach {
+    extensions.configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+val clasesLogica =
+    fileTree(
+        layout.buildDirectory.dir("intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes")
+    ) {
+        include("cl/duoc/therionlabs/domain/**")
+        include("cl/duoc/therionlabs/util/**")
+        include("cl/duoc/therionlabs/data/repository/**")
+        include("cl/duoc/therionlabs/data/viewmodel/**")
+        include("cl/duoc/therionlabs/network/**")
+    }
+
+val coberturaDebug by
+    tasks.registering(JacocoReport::class) {
+        dependsOn("testDebugUnitTest")
+        executionData(layout.buildDirectory.file("jacoco/testDebugUnitTest.exec"))
+        classDirectories.setFrom(clasesLogica)
+        sourceDirectories.setFrom(files("src/main/java"))
+        reports {
+            html.required = true
+            xml.required = true
+            csv.required = true
+        }
+    }
+
+val verificarCobertura by
+    tasks.registering(JacocoCoverageVerification::class) {
+        dependsOn(coberturaDebug)
+        executionData(coberturaDebug.map { it.executionData })
+        classDirectories.setFrom(clasesLogica)
+        sourceDirectories.setFrom(files("src/main/java"))
+        violationRules {
+            rule {
+                limit {
+                    counter = "LINE"
+                    minimum = "0.80".toBigDecimal()
+                }
+            }
+        }
+    }

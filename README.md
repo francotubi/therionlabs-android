@@ -2,6 +2,8 @@
 
 Aplicación Android para organizar eventos de captación, registrar prospectos y gestionar su seguimiento en la Región de Valparaíso. El backend Spring Boot centraliza los datos en MySQL y permite compartirlos entre dispositivos al actualizar o sincronizar.
 
+Durante una feria vocacional, los captadores necesitan registrar interesados aunque falle la conexión. Administración necesita reunir esas capturas, evitar duplicados y conservar el seguimiento de cada persona. Room permite continuar la captura en el teléfono y el servidor reúne la información cuando vuelve la conexión.
+
 ## Integrantes
 
 Diego Barra, Franco Tubi, Maicol García y Benjamín Osorio.
@@ -22,7 +24,7 @@ Diego Barra, Franco Tubi, Maicol García y Benjamín Osorio.
 ## Ejecución
 
 1. Abrir este proyecto en Android Studio con JDK 21 y Android SDK 36, revisión menor 1.
-2. Ejecutar el backend de [therionlabs-backend](https://github.com/francotubi/therionlabs-backend) con MySQL. Configurar `THERIONLABS_DB_URL`, `THERIONLABS_DB_USER`, `THERIONLABS_DB_PASSWORD` y `PORT` (8081 por defecto).
+2. Para usar AWS no es necesario ejecutar el backend en el computador. Para una instalación local, ejecutar [therionlabs-backend](https://github.com/francotubi/therionlabs-backend) con MySQL y configurar `THERIONLABS_DB_URL`, `THERIONLABS_DB_USER`, `THERIONLABS_DB_PASSWORD` y `PORT` (8081 por defecto).
 3. En la primera ejecución del backend, definir `THERIONLABS_ADMIN_USER` y `THERIONLABS_ADMIN_PASSWORD` para crear la cuenta administrativa inicial. No hay una contraseña de producción incluida en el código. Cambiar esas variables después no altera una cuenta ya creada.
 4. Ejecutar la aplicación. La dirección inicial es `https://184.192.154.68/`, correspondiente al backend desplegado en EC2 con una Elastic IP y certificado válido. Para pruebas locales se utiliza la compilación debug y se configura `http://10.0.2.2:8081/` antes de descargar datos. Desde el inicio de sesión, Configurar servidor permite guardar otra dirección antes de descargar eventos o capturar fichas. Para un teléfono físico se necesita una dirección accesible del backend. La compilación release solo admite conexiones HTTPS.
 5. Ingresar con la cuenta administrativa del servidor. En Cuentas, crear el usuario, contraseña inicial, nombre, perfil y código del captador. No se admiten códigos duplicados entre cuentas.
@@ -74,11 +76,17 @@ Las fichas usan 0 pendiente, 1 sincronizada y 2 rechazada. Cada captura y seguim
 ## Pruebas
 
 ```powershell
-.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
+.\gradlew.bat verificarCobertura lintDebug assembleDebug
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-Se comprueban validaciones, permisos, contratos HTTP, migración de Room, conservación de identidades, acceso sin conexión, rechazo de credenciales y cifrado de tokens. Los informes se generan en `app/build/reports/`. La cobertura del 80 % solicitada por la pauta aún debe medirse; el número de pruebas no demuestra ese porcentaje.
+Las pruebas unitarias se encuentran en `app/src/test/` y usan JUnit, MockK, MockWebServer y corutinas de prueba. Se comprueban permisos, duplicados, acceso conectado y sin conexión, cierres de eventos, confirmación de UUID, rechazos, reintentos, formularios y estados de los tres ViewModel. Las bases de datos, preferencias y servicios remotos se simulan; la suite no necesita acceder a AWS. `AccesoViewModel` admite recibir el repositorio en su constructor para aislarlo durante las pruebas y conserva el repositorio habitual por defecto.
+
+La tarea `verificarCobertura` ejecuta las pruebas, genera el informe de JaCoCo y exige al menos un 80 % de cobertura de líneas. Se miden completas las capas `domain`, `util`, `data/repository`, `data/viewmodel` y `network`, incluidas las clases de esas capas que usan servicios Android. La interfaz Compose, los modelos de persistencia, el código generado por Room y la programación de WorkManager quedan fuera de esta medición. El porcentaje corresponde a esas capas, no al total del proyecto.
+
+El resultado y su alcance se encuentran en [el informe de pruebas](entrega/pruebas/Resumen.md). Los informes reproducibles se generan en `app/build/reports/tests/testDebugUnitTest/index.html` y `app/build/reports/jacoco/coberturaDebug/html/index.html`. La copia de entrega incluye el XML y los informes HTML comprimidos.
+
+Las pruebas en `app/src/androidTest/` comprueban Room y Android Keystore en el emulador: migración, conservación de identidades, acceso sin conexión, rechazo de credenciales y cifrado de tokens. Sus resultados no se suman a la cobertura unitaria.
 
 ## APK firmado y evidencia de entrega
 
@@ -94,4 +102,6 @@ La instalación debe realizarse en un teléfono sin otra compilación de Therion
 
 El backend se ejecuta como servicio en Ubuntu de EC2, con MySQL accesible dentro del servidor y Nginx en el puerto 443. El certificado de la IP tiene renovación automática configurada con Certbot. La instancia debe estar encendida y el laboratorio activo para que responda. La dirección permanece fija mientras se conserve la Elastic IP.
 
-Antes de cerrar la entrega falta completar las capturas verificadas de firma exigidas por la pauta, la evidencia de planificación en Trello, la medición de cobertura y las pruebas del flujo completo en dos teléfonos contra AWS. La respuesta HTTPS pública de `/api/eventos` fue comprobada; eso no sustituye las pruebas de acceso y captura desde los teléfonos.
+Se comprobó el flujo contra AWS desde un teléfono físico: inicio de sesión, creación de evento y cuenta de captador, captura sin conexión, envío automático al recuperar Wi-Fi y seguimiento administrativo guardado en el servidor. En una segunda instalación, el emulador mostró el evento y el total de prospectos del mismo servidor.
+
+La verificación técnica de la firma se conserva en [Firma-APK.txt](entrega/Firma-APK.txt). Quedan por incorporar las capturas del proceso de firma y la evidencia del tablero de trabajo. La prueba de renovación del certificado se mantiene pendiente de comprobación.
